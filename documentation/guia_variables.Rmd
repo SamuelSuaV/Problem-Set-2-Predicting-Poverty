@@ -1,0 +1,214 @@
+---
+title: "Guía de variables: train_clean y test_clean"
+subtitle: "Problem Set 2 - Predicting Poverty"
+author: "Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(here)
+library(tidyverse)
+```
+
+## Cómo usar esta guía
+
+- Las bases limpias salen de `script/01_data_cleaning.r`, que guarda
+  `data/train_clean.rds` y `data/test_clean.rds`. Para cargarlas:
+  `train <- read_rds(here("data", "train_clean.rds"))`.
+- **Unidad de observación: persona.** Cada fila es una persona; las variables
+  del hogar se repiten para todas las personas del mismo `id`.
+- **Todo cambio a una variable se hace en `01_data_cleaning.r`** (no en los
+  scripts de análisis) **y se actualiza esta guía.** Al compilarla, la última
+  sección avisa si alguna variable de la base no está documentada aquí.
+- Fuente de los códigos: `documentation/ddi-documentation-spanish-608.pdf`
+  (diccionario del DANE, GEIH 2018).
+
+### Convenciones
+
+- **Sí/no:** 1 = sí, 0 = no, `NA` = no sabe (el 9 original) o no se le hizo
+  la pregunta.
+- **Variables 0/1** (sí/no, dummies, `mujer`, `cabecera`, `ocupado`…) se
+  guardan como `integer` para ahorrar memoria; las demás numéricas son
+  `numeric`.
+- **`NA` casi siempre significa que la pregunta no aplica.** La GEIH tiene
+  saltos: por ejemplo, las preguntas del trabajo solo se hacen a ocupados. Por
+  eso varias variables tienen más de 50% de `NA`.
+- **Categóricas:** se dejan con los códigos del DANE (abajo). `max_educ`,
+  `regimen_salud` y `tenencia_vivienda` además tienen una dummy por categoría
+  (`educ_*`, `salud_*`, `vivienda_*`), incluida "no sabe". Las demás
+  categóricas hay que convertirlas en factor o en dummies para usarlas en un
+  modelo.
+
+```{r variables}
+variables <- tribble(
+  ~grupo, ~variable, ~original, ~descripcion, ~valores,
+
+  # Identificadores y diseño muestral
+  "Identificadores y diseño", "id", "id", "Llave del hogar", "Texto",
+  "Identificadores y diseño", "orden", "Orden", "Número de la persona dentro del hogar", "Entero",
+  "Identificadores y diseño", "dominio", "Dominio", "Ciudad (24 áreas metropolitanas), resto urbano o rural", "Texto: BOGOTA, MEDELLIN, ..., RESTO URBANO, RURAL",
+  "Identificadores y diseño", "cabecera", "Clase", "Vive en cabecera municipal", "1 = cabecera, 0 = resto",
+  "Identificadores y diseño", "depto", "Depto", "Departamento", "Código DANE (texto)",
+  "Identificadores y diseño", "fex_c", "Fex_c", "Factor de expansión anualizado", "Continua",
+  "Identificadores y diseño", "fex_dpto", "Fex_dpto", "Factor de expansión departamental", "Continua",
+
+  # Persona
+  "Persona", "mujer", "P6020", "Sexo", "1 = mujer, 0 = hombre",
+  "Persona", "anos", "P6040", "Años cumplidos", "Entero",
+  "Persona", "parentesco_jefe_hogar", "P6050", "Parentesco con el jefe del hogar", "1 jefe, 2 pareja, 3 hijo, 4 nieto, 5 otro pariente, 6 empleado doméstico, 7 pensionista, 8 trabajador, 9 otro no pariente",
+  "Persona", "afiliado_salud", "P6090", "Está afiliado a seguridad social en salud", "Sí/no",
+  "Persona", "regimen_salud", "P6100", "Régimen de salud", "1 contributivo, 2 especial, 3 subsidiado, 9 no sabe",
+  "Persona", "max_educ", "P6210", "Nivel educativo más alto alcanzado", "1 ninguno, 2 preescolar, 3 primaria, 4 secundaria, 5 media, 6 superior, 9 no sabe",
+  "Persona", "educ_ninguno", "Creada (P6210)", "max_educ = 1 (ninguno)", "1/0; NA si max_educ es NA",
+  "Persona", "educ_preescolar", "Creada (P6210)", "max_educ = 2 (preescolar)", "1/0; NA si max_educ es NA",
+  "Persona", "educ_primaria", "Creada (P6210)", "max_educ = 3 (primaria)", "1/0; NA si max_educ es NA",
+  "Persona", "educ_secundaria", "Creada (P6210)", "max_educ = 4 (secundaria)", "1/0; NA si max_educ es NA",
+  "Persona", "educ_media", "Creada (P6210)", "max_educ = 5 (media)", "1/0; NA si max_educ es NA",
+  "Persona", "educ_superior", "Creada (P6210)", "max_educ = 6 (superior)", "1/0; NA si max_educ es NA",
+  "Persona", "educ_no_sabe", "Creada (P6210)", "max_educ = 9 (no sabe, no informa)", "1/0; NA si max_educ es NA",
+  "Persona", "salud_contributivo", "Creada (P6100)", "regimen_salud = 1 (contributivo)", "1/0; NA si no está afiliado",
+  "Persona", "salud_especial", "Creada (P6100)", "regimen_salud = 2 (especial)", "1/0; NA si no está afiliado",
+  "Persona", "salud_subsidiado", "Creada (P6100)", "regimen_salud = 3 (subsidiado)", "1/0; NA si no está afiliado",
+  "Persona", "salud_no_sabe", "Creada (P6100)", "regimen_salud = 9 (no sabe, no informa)", "1/0; NA si no está afiliado",
+  "Persona", "max_grado_escolar", "P6210s1", "Último grado aprobado en ese nivel", "Entero",
+  "Persona", "actividad_sem_pasada", "P6240", "Actividad principal la semana pasada", "1 trabajando, 2 buscando trabajo, 3 estudiando, 4 oficios del hogar, 5 incapacitado, 6 otra",
+
+  # Fuerza laboral
+  "Fuerza laboral", "edad_trabajar", "Pet", "Población en edad de trabajar", "1 = sí, NA = no",
+  "Fuerza laboral", "ocupado", "Oc", "Ocupado", "1 = sí, NA = no",
+  "Fuerza laboral", "desocupado", "Des", "Desocupado", "1 = sí, NA = no",
+  "Fuerza laboral", "inactivo", "Ina", "Inactivo", "1 = sí, NA = no",
+
+  # Trabajo principal (solo ocupados)
+  "Trabajo principal", "oficio", "Oficio", "Qué hace en su trabajo", "Código de ocupación (categórica)",
+  "Trabajo principal", "meses_empresa", "P6426", "Meses trabajando de forma continua en la empresa", "Entero; NA reemplazado por 0",
+  "Trabajo principal", "posicion_ocupacional", "P6430", "Posición ocupacional", "1 empleado particular, 2 empleado gobierno, 3 empleado doméstico, 4 cuenta propia, 5 patrón, 6 familiar sin pago, 7 sin pago en otros hogares, 8 jornalero, 9 otro",
+  "Trabajo principal", "horas_trabajo_semana", "P6800", "Horas que trabaja normalmente a la semana", "Entero",
+  "Trabajo principal", "tamano_empresa", "P6870", "Personas que trabajan en la empresa", "0 no aplica (era NA), 1 solo, 2 de 2-3, 3 de 4-5, 4 de 6-10, 5 de 11-19, 6 de 20-30, 7 de 31-50, 8 de 51-100, 9 más de 100",
+  "Trabajo principal", "cotiza_pension", "P6920", "Cotiza a fondo de pensiones", "1 sí, 2 no, 3 ya es pensionado",
+
+  # Pagos del trabajo
+  "Pagos del trabajo", "recibio_horas_extra", "P6510", "Recibió horas extra el mes pasado", "Sí/no",
+  "Pagos del trabajo", "recibio_primas", "P6545", "Recibió primas el mes pasado", "Sí/no",
+  "Pagos del trabajo", "recibio_bonificaciones", "P6580", "Recibió bonificación mensual", "Sí/no",
+  "Pagos del trabajo", "subsidio_alimentacion", "P6585s1", "Recibió subsidio de alimentación", "Sí/no",
+  "Pagos del trabajo", "subsidio_transporte", "P6585s2", "Recibió subsidio de transporte", "Sí/no",
+  "Pagos del trabajo", "subsidio_familiar", "P6585s3", "Recibió subsidio familiar", "Sí/no",
+  "Pagos del trabajo", "subsidio_educativo", "P6585s4", "Recibió subsidio educativo", "Sí/no",
+  "Pagos del trabajo", "pago_especie_alimentos", "P6590", "Recibió alimentos como parte del pago", "Sí/no",
+  "Pagos del trabajo", "pago_especie_vivienda", "P6600", "Recibió vivienda como parte del pago", "Sí/no",
+  "Pagos del trabajo", "transporte_empresa", "P6610", "Usa transporte de la empresa", "Sí/no",
+  "Pagos del trabajo", "pago_especie_otros", "P6620", "Recibió otros pagos en especie", "Sí/no",
+  "Pagos del trabajo", "prima_servicios", "P6630s1", "Recibió prima de servicios (12 meses)", "Sí/no",
+  "Pagos del trabajo", "prima_navidad", "P6630s2", "Recibió prima de navidad (12 meses)", "Sí/no",
+  "Pagos del trabajo", "prima_vacaciones", "P6630s3", "Recibió prima de vacaciones (12 meses)", "Sí/no",
+  "Pagos del trabajo", "viaticos_permanentes", "P6630s4", "Recibió viáticos permanentes (12 meses)", "Sí/no",
+  "Pagos del trabajo", "bonificaciones_anuales", "P6630s6", "Recibió bonificaciones anuales (12 meses)", "Sí/no",
+
+  # Segundo trabajo y subempleo
+  "Segundo trabajo y búsqueda", "segundo_trabajo", "P7040", "Tenía otro trabajo la semana pasada", "Sí/no",
+  "Segundo trabajo y búsqueda", "horas_segundo_trabajo", "P7045", "Horas trabajadas en el segundo trabajo", "Entero",
+  "Segundo trabajo y búsqueda", "posicion_segundo_trabajo", "P7050", "Posición ocupacional en el segundo trabajo", "Mismos códigos que posicion_ocupacional",
+  "Segundo trabajo y búsqueda", "quiere_mas_horas", "P7090", "Quiere trabajar más horas", "Sí/no",
+  "Segundo trabajo y búsqueda", "diligencias_mas_horas", "P7110", "Hizo diligencias para trabajar más horas (4 semanas)", "Sí/no",
+  "Segundo trabajo y búsqueda", "disponible_mas_horas", "P7120", "Estaba disponible para trabajar más horas", "Sí/no",
+  "Segundo trabajo y búsqueda", "diligencias_cambiar_trabajo", "P7150", "Hizo diligencias para cambiar de trabajo (4 semanas)", "Sí/no",
+  "Segundo trabajo y búsqueda", "disponible_nuevo_trabajo", "P7160", "Podría empezar un trabajo nuevo antes de un mes", "Sí/no",
+  "Segundo trabajo y búsqueda", "primera_vez_busca_trabajo", "P7310", "Busca trabajo por primera vez (desocupados)", "1 = primera vez, 0 = trabajó antes",
+  "Segundo trabajo y búsqueda", "posicion_ultimo_trabajo", "P7350", "Posición en el último trabajo (desocupados)", "Mismos códigos que posicion_ocupacional",
+  "Segundo trabajo y búsqueda", "ingreso_trabajo_desocupado", "P7422", "Recibió ingresos por trabajo el mes pasado (desocupados)", "Sí/no",
+  "Segundo trabajo y búsqueda", "ingreso_trabajo_desocupado_2", "P7472", "Misma pregunta, segundo bloque del cuestionario (ver diccionario)", "Sí/no",
+
+  # Otros ingresos
+  "Otros ingresos", "recibio_arriendos_pensiones", "P7495", "Recibió arriendos y/o pensiones el mes pasado", "Sí/no",
+  "Otros ingresos", "recibio_pension_jubilacion", "P7500s2", "Recibió pensión de jubilación", "Sí/no",
+  "Otros ingresos", "recibio_pension_alimenticia", "P7500s3", "Recibió pensión alimenticia", "Sí/no",
+  "Otros ingresos", "recibio_otros_ingresos", "P7505", "Recibió dinero de hogares, instituciones, intereses o cesantías (12 meses)", "Sí/no",
+  "Otros ingresos", "dinero_hogares_pais", "P7510s1", "Dinero de otros hogares en el país", "Sí/no",
+  "Otros ingresos", "dinero_hogares_exterior", "P7510s2", "Dinero de hogares en el exterior (remesas)", "Sí/no",
+  "Otros ingresos", "ayudas_instituciones", "P7510s3", "Ayudas de instituciones", "Sí/no",
+  "Otros ingresos", "dinero_intereses_dividendos", "P7510s5", "Intereses, dividendos o utilidades", "Sí/no",
+  "Otros ingresos", "dinero_cesantias", "P7510s6", "Cesantías", "Sí/no",
+  "Otros ingresos", "dinero_otras_fuentes", "P7510s7", "Dinero de otras fuentes", "Sí/no",
+
+  # Hogar y vivienda
+  "Hogar y vivienda", "cuartos_hogar", "P5000", "Cuartos del hogar (incluye sala-comedor)", "Entero",
+  "Hogar y vivienda", "cuartos_dormir", "P5010", "Cuartos donde duermen", "Entero",
+  "Hogar y vivienda", "tenencia_vivienda", "P5090", "Tenencia de la vivienda", "1 propia pagada, 2 propia pagando, 3 arriendo, 4 usufructo, 5 posesión sin título, 6 otra",
+  "Hogar y vivienda", "vivienda_propia_pagada", "Creada (P5090)", "tenencia_vivienda = 1 (propia, pagada)", "1/0",
+  "Hogar y vivienda", "vivienda_propia_pagando", "Creada (P5090)", "tenencia_vivienda = 2 (propia, la están pagando)", "1/0",
+  "Hogar y vivienda", "vivienda_arriendo", "Creada (P5090)", "tenencia_vivienda = 3 (arriendo o subarriendo)", "1/0",
+  "Hogar y vivienda", "vivienda_usufructo", "Creada (P5090)", "tenencia_vivienda = 4 (usufructo)", "1/0",
+  "Hogar y vivienda", "vivienda_sin_titulo", "Creada (P5090)", "tenencia_vivienda = 5 (posesión sin título)", "1/0",
+  "Hogar y vivienda", "vivienda_otra", "Creada (P5090)", "tenencia_vivienda = 6 (otra)", "1/0",
+  "Hogar y vivienda", "cuota_amortizacion", "P5100", "Cuota mensual de amortización", "Pesos; 98 (no sabe) y 99 (no informa) pasan a NA",
+  "Hogar y vivienda", "arriendo_estimado", "P5130", "Arriendo que estima que pagaría (dueños y usufructo)", "Pesos; 98 (no sabe) y 99 (no informa) pasan a NA",
+  "Hogar y vivienda", "arriendo_pagado", "P5140", "Arriendo mensual que paga", "Pesos; 98 (no sabe) y 99 (no informa) pasan a NA",
+  "Hogar y vivienda", "personas_hogar", "Nper", "Personas en el hogar", "Entero",
+  "Hogar y vivienda", "personas_unidad_gasto", "Npersug", "Personas en la unidad de gasto", "Entero",
+  "Hogar y vivienda", "prop_edad_trabajar", "Creada", "Personas en edad de trabajar / personas_hogar", "Entre 0 y 1",
+  "Hogar y vivienda", "linea_indigencia", "Li", "Línea de indigencia (per cápita)", "Pesos",
+  "Hogar y vivienda", "linea_pobreza", "Lp", "Línea de pobreza (per cápita)", "Pesos",
+
+  # Solo train
+  "Solo en train", "pobre", "Pobre", "Hogar pobre: ingreso < linea_pobreza. **Variable a predecir.**", "1 = pobre, 0 = no pobre",
+  "Solo en train", "ingreso", "Ingpcug", "Ingreso per cápita de la unidad de gasto, con arriendo imputado. Define pobre e Indigente", "Pesos",
+  "Solo en train", "Indigente", "Indigente", "Hogar indigente: ingreso < linea_indigencia", "1 = indigente, 0 = no",
+  "Solo en train", "Npobres", "Npobres", "Número de pobres en el hogar", "Entero",
+  "Solo en train", "Nindigentes", "Nindigentes", "Número de indigentes en el hogar", "Entero",
+  "Solo en train", "Estrato1", "Estrato1", "Estrato socioeconómico (energía o sextil de ICV)", "1 a 6"
+)
+
+grupos <- unique(variables$grupo)
+```
+
+```{r tablas, results = "asis"}
+for (g in grupos) {
+  cat("\n\n## ", g, "\n\n", sep = "")
+  if (g == "Solo en train") {
+    cat("No existen en test: sirven para entrenar y evaluar, **no como predictores**.\n\n")
+  }
+  variables |>
+    filter(grupo == g) |>
+    select(-grupo) |>
+    knitr::kable(col.names = c("Variable", "Código original", "Descripción", "Valores")) |>
+    print()
+}
+```
+
+## Variables eliminadas en la limpieza
+
+- **Columnas duplicadas del merge:** `Clase`, `Dominio`, `Fex_c`, `Depto` y
+  `Fex_dpto` vienen en personas y en hogares. Son idénticas, así que se usan
+  como llaves del `left_join` y no se duplican.
+- **`sexo` y `clase`:** reemplazadas por `mujer` y `cabecera`.
+- **Filas eliminadas (solo train):** los 2 hogares con `cuartos_hogar` = 98 y
+  43 (2 dormitorios y 3 personas: error de digitación). Test no se filtra.
+- **Solo en train:** las preguntas de montos de ingreso (`P6500`, `P6510s1`,
+  `P7510s1a1`, ...) y los agregados de ingreso (`Impa` a `Ingtot`, `Ingtotug`,
+  `Ingtotugarr`). No están en test y casi determinan `pobre`; solo se deja
+  `ingreso`.
+
+## Chequeo: ¿la guía está al día?
+
+```{r chequeo}
+ruta <- here("data", "train_clean.rds")
+if (file.exists(ruta)) {
+  en_base <- names(read_rds(ruta))
+  sin_documentar <- setdiff(en_base, variables$variable)
+  ya_no_existen  <- setdiff(variables$variable, en_base)
+  if (length(sin_documentar) + length(ya_no_existen) == 0) {
+    cat("La guía documenta las", length(en_base), "variables de train_clean.\n")
+  } else {
+    cat("La guía NO está al día.\n",
+        "Variables en la base sin documentar:", toString(sin_documentar), "\n",
+        "Variables en la guía que ya no están en la base:", toString(ya_no_existen), "\n")
+  }
+} else {
+  cat("No se encontró data/train_clean.rds: corre script/01_data_cleaning.r primero.\n")
+}
+```
