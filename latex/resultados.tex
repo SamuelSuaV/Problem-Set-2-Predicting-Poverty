@@ -1,0 +1,58 @@
+\documentclass[12pt]{article}
+\usepackage[spanish]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{float}
+
+% Tablas y figuras generadas por script/02_data_analysis.r.
+\graphicspath{{../output/figures/}}
+
+\title{Predicting Poverty: análisis descriptivo}
+\author{Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Datos}
+
+Se usa la muestra de entrenamiento de la GEIH 2018 (DANE): 543.103 personas
+en 164.958 hogares. Un hogar es pobre cuando su ingreso per cápita de la
+unidad de gasto (con arriendo imputado) es menor que la línea de pobreza de
+su dominio. El 20,0\% de los hogares y el 25,1\% de las personas son pobres.
+
+\section{Estadísticas descriptivas}
+
+El Cuadro~\ref{tab:descriptivas} compara las medias de las características
+de las personas pobres y no pobres. La diferencia es la media de los pobres
+menos la de los no pobres, y el p-valor viene de una prueba $t$ de
+diferencia de medias. Las variables de educación y de tenencia de vivienda
+son dummies por categoría, así que su media es la proporción de personas en
+esa categoría.
+
+\input{../output/tables/descriptivas.tex}
+
+\section{Visualización}
+
+Las figuras relacionan el ingreso per cápita con cada variable. La línea roja
+punteada es la mediana de la línea de pobreza (\$280.072); la línea varía
+por dominio, por lo que se usa la mediana como referencia.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{ingreso_dummies.png}
+  \caption{Ingreso per cápita promedio por categoría de las variables
+    dummies y categóricas.}
+  \label{fig:dummies}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{ingreso_continuas.png}
+  \caption{Ingreso per cápita frente a las variables continuas. El eje $y$
+    se corta en el percentil 99 del ingreso (\$4.400.000).}
+  \label{fig:continuas}
+\end{figure}
+
+\end{document}
