@@ -1596,10 +1596,10 @@ rural</td>
 <h2>Persona</h2>
 <table>
 <colgroup>
-<col width="10%" />
-<col width="7%" />
-<col width="20%" />
-<col width="60%" />
+<col width="4%" />
+<col width="3%" />
+<col width="65%" />
+<col width="26%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -1623,105 +1623,132 @@ rural</td>
 <td align="left">Entero</td>
 </tr>
 <tr class="odd">
+<td align="left">anos2</td>
+<td align="left">Creada</td>
+<td align="left">anos al cuadrado (efectos no lineales de la edad)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
 <td align="left">parentesco_jefe_hogar</td>
 <td align="left">P6050</td>
 <td align="left">Parentesco con el jefe del hogar</td>
 <td align="left">1 jefe, 2 pareja, 3 hijo, 4 nieto, 5 otro pariente, 6
 empleado doméstico, 7 pensionista, 8 trabajador, 9 otro no pariente</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">afiliado_salud</td>
 <td align="left">P6090</td>
 <td align="left">Está afiliado a seguridad social en salud</td>
 <td align="left">Sí/no</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">regimen_salud</td>
 <td align="left">P6100</td>
 <td align="left">Régimen de salud</td>
 <td align="left">1 contributivo, 2 especial, 3 subsidiado, 9 no
 sabe</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">max_educ</td>
 <td align="left">P6210</td>
 <td align="left">Nivel educativo más alto alcanzado</td>
 <td align="left">1 ninguno, 2 preescolar, 3 primaria, 4 secundaria, 5
 media, 6 superior, 9 no sabe</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">educ_ninguno</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 1 (ninguno)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">educ_preescolar</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 2 (preescolar)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">educ_primaria</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 3 (primaria)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">educ_secundaria</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 4 (secundaria)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">educ_media</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 5 (media)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">educ_superior</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 6 (superior)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">educ_no_sabe</td>
 <td align="left">Creada (P6210)</td>
 <td align="left">max_educ = 9 (no sabe, no informa)</td>
 <td align="left">1/0; NA si max_educ es NA</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">salud_contributivo</td>
 <td align="left">Creada (P6100)</td>
 <td align="left">regimen_salud = 1 (contributivo)</td>
 <td align="left">1/0; NA si no está afiliado</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">salud_especial</td>
 <td align="left">Creada (P6100)</td>
 <td align="left">regimen_salud = 2 (especial)</td>
 <td align="left">1/0; NA si no está afiliado</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">salud_subsidiado</td>
 <td align="left">Creada (P6100)</td>
 <td align="left">regimen_salud = 3 (subsidiado)</td>
 <td align="left">1/0; NA si no está afiliado</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">salud_no_sabe</td>
 <td align="left">Creada (P6100)</td>
 <td align="left">regimen_salud = 9 (no sabe, no informa)</td>
 <td align="left">1/0; NA si no está afiliado</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">max_grado_escolar</td>
 <td align="left">P6210s1</td>
-<td align="left">Último grado aprobado en ese nivel</td>
-<td align="left">Entero</td>
+<td align="left">Último año o grado aprobado en el nivel de max_educ. En
+primaria (1-5), secundaria (6-9) y media (10-13) es el grado del
+colegio; en superior son los años de universidad contados desde 0; en
+preescolar es 0 si asiste y 1 si aprobó algún grado. 0 en cualquier
+nivel = cursando el primer año del nivel</td>
+<td align="left">Entero; 99 (no sabe) pasado a NA</td>
+</tr>
+<tr class="even">
+<td align="left">anos_educ</td>
+<td align="left">Creada</td>
+<td align="left">Años de educación aprobados: 0 en ninguno y preescolar;
+el grado en primaria, secundaria y media (si está cursando el primer año
+del nivel, los años del nivel anterior: 5 en secundaria, 9 en media); 11
++ años de universidad en superior</td>
+<td align="left">Entero de 0 a 26; NA si max_educ es NA o 9, o si falta
+max_grado_escolar</td>
 </tr>
 <tr class="odd">
+<td align="left">anos_educ_imp</td>
+<td align="left">Creada</td>
+<td align="left">anos_educ con NA reemplazados por el promedio de su
+nivel (max_educ)</td>
+<td align="left">Numérico; NA si max_educ es NA o 9</td>
+</tr>
+<tr class="even">
 <td align="left">actividad_sem_pasada</td>
 <td align="left">P6240</td>
 <td align="left">Actividad principal la semana pasada</td>
@@ -1733,12 +1760,12 @@ oficios del hogar, 5 incapacitado, 6 otra</td>
 </div>
 <div id="fuerza-laboral" class="section level2">
 <h2>Fuerza laboral</h2>
-<table>
+<table style="width:100%;">
 <colgroup>
-<col width="18%" />
-<col width="21%" />
-<col width="39%" />
-<col width="21%" />
+<col width="16%" />
+<col width="19%" />
+<col width="35%" />
+<col width="28%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -1759,7 +1786,7 @@ oficios del hogar, 5 incapacitado, 6 otra</td>
 <td align="left">ocupado</td>
 <td align="left">Oc</td>
 <td align="left">Ocupado</td>
-<td align="left">1 = sí, NA = no</td>
+<td align="left">1 = sí, 0 = no (era NA)</td>
 </tr>
 <tr class="odd">
 <td align="left">desocupado</td>
@@ -1780,10 +1807,10 @@ oficios del hogar, 5 incapacitado, 6 otra</td>
 <h2>Trabajo principal</h2>
 <table>
 <colgroup>
-<col width="8%" />
-<col width="6%" />
-<col width="19%" />
-<col width="65%" />
+<col width="10%" />
+<col width="5%" />
+<col width="22%" />
+<col width="61%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -1807,6 +1834,12 @@ oficios del hogar, 5 incapacitado, 6 otra</td>
 <td align="left">Entero; NA reemplazado por 0</td>
 </tr>
 <tr class="odd">
+<td align="left">log_meses_empresa</td>
+<td align="left">Creada</td>
+<td align="left">log(1 + meses_empresa), solo ocupados</td>
+<td align="left">Numérico; NA si no está ocupado</td>
+</tr>
+<tr class="even">
 <td align="left">posicion_ocupacional</td>
 <td align="left">P6430</td>
 <td align="left">Posición ocupacional</td>
@@ -1814,18 +1847,51 @@ oficios del hogar, 5 incapacitado, 6 otra</td>
 doméstico, 4 cuenta propia, 5 patrón, 6 familiar sin pago, 7 sin pago en
 otros hogares, 8 jornalero, 9 otro</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">horas_trabajo_semana</td>
 <td align="left">P6800</td>
 <td align="left">Horas que trabaja normalmente a la semana</td>
 <td align="left">Entero</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">tamano_empresa</td>
 <td align="left">P6870</td>
 <td align="left">Personas que trabajan en la empresa</td>
 <td align="left">0 no aplica (era NA), 1 solo, 2 de 2-3, 3 de 4-5, 4 de
 6-10, 5 de 11-19, 6 de 20-30, 7 de 31-50, 8 de 51-100, 9 más de 100</td>
+</tr>
+<tr class="odd">
+<td align="left">afiliado_x_regimen</td>
+<td align="left">Creada</td>
+<td align="left">Cruce afiliado_salud × regimen_salud</td>
+<td align="left">Texto “afiliado_regimen” (p. ej. “1_3”); NA es el nivel
+“NA”</td>
+</tr>
+<tr class="even">
+<td align="left">regimen_x_posicion</td>
+<td align="left">Creada</td>
+<td align="left">Cruce regimen_salud × posicion_ocupacional</td>
+<td align="left">Texto “regimen_posicion”; NA es el nivel “NA”</td>
+</tr>
+<tr class="odd">
+<td align="left">posicion_x_tamano</td>
+<td align="left">Creada</td>
+<td align="left">Cruce posicion_ocupacional × tamano_empresa</td>
+<td align="left">Texto “posicion_tamano”; NA es el nivel “NA”</td>
+</tr>
+<tr class="even">
+<td align="left">ocupado_x_actividad</td>
+<td align="left">Creada</td>
+<td align="left">Cruce ocupado × actividad_sem_pasada</td>
+<td align="left">Texto “ocupado_actividad”; NA es el nivel “NA”</td>
+</tr>
+<tr class="odd">
+<td align="left">regimen_x_posicion_x_tamano</td>
+<td align="left">Creada</td>
+<td align="left">Cruce regimen_salud × posicion_ocupacional ×
+tamano_empresa</td>
+<td align="left">Texto “regimen_posicion_tamano”; NA es el nivel
+“NA”</td>
 </tr>
 <tr class="even">
 <td align="left">cotiza_pension</td>
@@ -2134,12 +2200,12 @@ cesantías (12 meses)</td>
 </div>
 <div id="hogar-y-vivienda" class="section level2">
 <h2>Hogar y vivienda</h2>
-<table>
+<table style="width:100%;">
 <colgroup>
-<col width="13%" />
-<col width="8%" />
-<col width="28%" />
-<col width="49%" />
+<col width="9%" />
+<col width="6%" />
+<col width="42%" />
+<col width="41%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -2243,12 +2309,32 @@ usufructo)</td>
 <td align="left">Entre 0 y 1</td>
 </tr>
 <tr class="even">
+<td align="left">prop_mujer</td>
+<td align="left">Creada</td>
+<td align="left">Mujeres del hogar / personas_hogar</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="odd">
+<td align="left">prop_ocupados_hogar</td>
+<td align="left">Creada</td>
+<td align="left">Ocupados del hogar / personas_hogar</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="even">
+<td align="left">arriendo_pc_sobre_lp</td>
+<td align="left">Creada</td>
+<td align="left">log(arriendo / personas_hogar / linea_pobreza);
+arriendo = arriendo_pagado o, si no paga, arriendo_estimado</td>
+<td align="left">Numérico; 0 = arriendo per cápita igual a la línea de
+pobreza; NA si no hay arriendo pagado ni estimado</td>
+</tr>
+<tr class="odd">
 <td align="left">linea_indigencia</td>
 <td align="left">Li</td>
 <td align="left">Línea de indigencia (per cápita)</td>
 <td align="left">Pesos</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">linea_pobreza</td>
 <td align="left">Lp</td>
 <td align="left">Línea de pobreza (per cápita)</td>
@@ -2341,7 +2427,7 @@ casi determinan <code>pobre</code>; solo se deja
 </div>
 <div id="chequeo-la-guía-está-al-día" class="section level2">
 <h2>Chequeo: ¿la guía está al día?</h2>
-<pre><code>## La guía documenta las 97 variables de train_clean.</code></pre>
+<pre><code>## La guía documenta las 109 variables de train_clean.</code></pre>
 </div>
 
 
