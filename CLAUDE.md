@@ -17,19 +17,22 @@ Problem Set 2 de Big Data & Machine Learning Applied in Economics: predecir qué
 R con `pacman::p_load` y `here` (rutas relativas a la raíz del repo). Correr desde la raíz:
 
 ```sh
-Rscript script/01_data_cleaning.r    # CSV crudos -> data/train_clean.rds, data/test_clean.rds
+Rscript script/01_data_cleaning.r    # CSV crudos -> data/train_clean.rds, data/test_clean.rds, data/train_clean_augmented.rds
 Rscript script/02_data_analysis.r    # tabla en output/tables/, figuras en output/figures/
+Rscript script/03_naive_bayes.r      # validación cruzada, grid search y submission en output/submissions/
 Rscript -e 'rmarkdown::render("documentation/guia_variables.Rmd")'   # compila la guía y verifica que esté al día
 cd latex && latexmk -pdf resultados.tex   # documento de resultados
 ```
 
-Flujo: 01 → 02 → LaTeX. 02 lee los `.rds` de 01, así que 01 debe correrse primero cada vez que cambian las variables. `latex/resultados.tex` no tiene números de tablas copiados: hace `\input{../output/tables/descriptivas.tex}` y carga las figuras de `../output/figures/`, así que basta con correr 02 y recompilar. Se referencia la tabla con `\ref{tab:descriptivas}` (el `label` está en el `kbl()` de 02). Los números que sí están escritos en el texto (tamaño de muestra, % de pobres, mediana de la línea de pobreza, percentil 99 del ingreso) hay que actualizarlos a mano si cambia la limpieza. `script/00_master_file.r` existe pero está vacío.
+Flujo: 01 → 02 → LaTeX, y 01 → 03. 02 y 03 leen los `.rds` de 01, así que 01 debe correrse primero cada vez que cambian las variables. `latex/resultados.tex` no tiene números de tablas copiados: hace `\input{../output/tables/descriptivas.tex}` y carga las figuras de `../output/figures/`, así que basta con correr 02 y recompilar. Se referencia la tabla con `\ref{tab:descriptivas}` (el `label` está en el `kbl()` de 02). Los números que sí están escritos en el texto (tamaño de muestra, % de pobres, mediana de la línea de pobreza, percentil 99 del ingreso) hay que actualizarlos a mano si cambia la limpieza. `script/00_master_file.r` existe pero está vacío.
+
+Correr 01 con `Rscript` (sesión nueva): ocupa ~1,4 GB, y en una sesión interactiva que ya tiene cargados los objetos de 03 se puede quedar sin memoria (el Mac tiene 8 GB). 03 tarda varios minutos: `predict()` de `e1071` calcula fila por fila; cada validación cruzada de 10 folds toma ~1-2 min por conjunto de variables.
 
 ## Datos
 
 - `data/` tiene los 4 CSV crudos (`{train,test}_{hogares,personas}.csv`) y los `.rds` limpios. `*.csv` y `*.rds` están en `.gitignore` (los `.rds` pesan cientos de MB).
 - Diccionario del DANE: `documentation/ddi-documentation-spanish-608.pdf`. Ahí están las etiquetas y códigos de cada pregunta `P####`.
-- La unidad de observación de las bases limpias es la **persona**; las variables del hogar se repiten para cada persona del mismo `id`.
+- La unidad de observación de las bases limpias es la **persona**; las variables del hogar se repiten para cada persona del mismo `id`. `pobre` es del hogar (todos los miembros comparten el valor) y la submission de Kaggle es una fila por hogar (`id`, `pobre`).
 
 ## Decisiones de limpieza que no son obvias
 
@@ -39,9 +42,20 @@ Flujo: 01 → 02 → LaTeX. 02 lee los `.rds` de 01, así que 01 debe correrse p
 - Solo existen en train: `ingreso`, `pobre` (`Pobre` en el CSV), `Indigente`, `Npobres`, `Nindigentes`, `Estrato1`. No sirven como predictores. Las demás preguntas de montos de ingreso (`P####s#a#`, etc.) y agregados (`Impa`…`Ingtot`, `Ingtotug`, `Ingtotugarr`) se eliminan de train porque no están en test.
 - Preguntas sí/no (vector `si_no`): 1 = sí, 0 = no, `NA` = no sabe (el 9 original) o pregunta no aplicada. `sexo` → `mujer`, `clase` → `cabecera`.
 - Categóricas `max_educ`, `regimen_salud`, `tenencia_vivienda`: se conservan con los códigos del DANE y además tienen dummies por categoría (lista `categorias`), incluida "no sabe".
+- `ocupado` es 1/0 (el `NA` original = no ocupado se pasó a 0), pero `edad_trabajar`, `desocupado` e `inactivo` siguen siendo 1/`NA`.
 - `NA` casi siempre significa que la pregunta no aplica por los saltos del cuestionario (p. ej. preguntas de trabajo solo para ocupados); no reemplazar por 0 sin revisar qué significa.
 - `arriendo_estimado`, `arriendo_pagado`, `cuota_amortizacion`: 98 (no sabe) y 99 (no informa) → `NA`. Los valores atípicos (arriendos de hasta $600M) se dejan a propósito.
 - Se eliminan de train los 2 hogares con `cuartos_hogar` 98 y 43 (error de digitación). **Nunca se eliminan filas de test**: hay que predecir todas.
+- `train_clean_augmented`: `train_clean` con los hogares pobres replicados (3 o 4 copias, el residuo al azar con `set.seed(123)`) hasta tener tantos hogares pobres como no pobres. Se arma al final de 01 desde `train_clean` ya editada, así que hereda cualquier cambio de variables sin tocarla aparte. Las copias conservan el `id` (los folds por hogar las dejan juntas). Para evaluar, validar siempre sobre hogares originales, no sobre la base aumentada.
+
+## Modelo naive bayes (`script/03_naive_bayes.r`)
+
+- **Tipos:** `naiveBayes()` (e1071) modela toda columna numérica como normal y solo los factores como categóricas, según el tipo de R, no según los valores. `preparar()` convierte a factor las variables del vector `categoricas`, el texto y toda columna 0/1. Se aplica igual a train y a test antes de estimar y de predecir; si test queda numérico, `predict()` da *type mismatch*. Al agregar una categórica con códigos DANE, agregarla a `categoricas`.
+- **Folds por hogar** (`fold`, 10 folds, `set.seed(123)`): todas las personas de un `id` quedan en el mismo fold.
+- **Predicción por hogar:** `prob_hogar()` predice la probabilidad de cada persona, la promedia en log odds dentro del `id` y compara con el umbral. El F1 de `cv_naive_bayes()` y del grid search se calcula con una predicción por hogar, igual que la predicción de test.
+- **Grid search** (sección 4): `laplace` × `umbral`; por cada `laplace` se estima una vez por fold y se evalúan todos los umbrales con esas probabilidades. `laplace` casi no cambia el F1 (desempate: el menor). Las probabilidades de naive bayes están descalibradas (sobrestiman la pobreza), por eso el umbral óptimo queda cerca de 0,45-0,5 y no en ~F1/2.
+- **Nombre de la submission:** formato Kaggle `modelo_hiperparámetro_valor` sin punto decimal (`NB_laplace_0_threshold_045.csv`); se arma solo con los valores del grid search. `*.csv` está en `.gitignore`.
+- **Selección de variables:** naive bayes cuenta dos veces la información de variables correlacionadas; repetir una medida (dummies `educ_*` + `max_educ` + `anos_educ_imp`, o `anos` + `anos2`) empeora el F1. Numéricas muy asimétricas (arriendos) le quedan mal a la normal: usar logaritmos (`arriendo_pc_sobre_lp`, `log_meses_empresa`). Comparar conjuntos de variables con su mejor umbral, no con 0,5.
 
 ## Estilo
 

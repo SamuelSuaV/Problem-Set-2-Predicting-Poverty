@@ -12,13 +12,14 @@
 # 3. Merge de individuos con sus hogares
 # 4. Renombrar columnas
 # 5. Variables editadas
-# 6. Guardar bases limpias
+# 6. Base aumentada (clases balanceadas)
+# 7. Guardar bases limpias
 
 ################################################################################
 
 # Input:  Dataframes crudos de hogares e individuos; train_hogares.csv ,
 #         train_personas.csv , test_hogares.csv , test_personas.csv .
-# Output: train_clean.rds , test_clean.rds .
+# Output: train_clean.rds , test_clean.rds , train_clean_augmented.rds .
 
 ################################################################################
 
@@ -48,6 +49,8 @@ raw_train <- left_join(raw_train_personas, raw_train_hogares,
                        by = llaves, relationship = "many-to-one")
 raw_test  <- left_join(raw_test_personas,  raw_test_hogares,
                        by = llaves, relationship = "many-to-one")
+# Las bases crudas ya no se usan: liberar memoria.
+rm(raw_train_hogares, raw_train_personas, raw_test_hogares, raw_test_personas)
 
 ################################################################################
 
@@ -137,6 +140,7 @@ train_clean <- raw_train |>
   select(-matches("^P[0-9]", ignore.case = FALSE),
          -c(Impa:Ingtot, Ingtotug, Ingtotugarr))
 test_clean  <- raw_test  |> rename(all_of(nombres))
+rm(raw_train, raw_test)
 
 ################################################################################
 ## 5. Variables editadas
@@ -173,29 +177,101 @@ categorias <- list(
                         vivienda_sin_titulo = 5, vivienda_otra = 6)
 )
 
+# Cruce de categóricas: una sola variable de texto con un nivel por
+# combinación de códigos (p. ej. "3_4"); NA queda como el nivel "NA". Sirve
+# para que naive bayes estime la distribución conjunta de variables
+# relacionadas en vez de suponerlas independientes.
+cruzar <- function(...) {
+  do.call(paste, c(lapply(list(...), \(v) coalesce(as.character(v), "NA")), sep = "_"))
+}
+
 # Misma edición para train y test, para que las variables coincidan.
+# Pasos en orden: cada uno puede usar las variables creadas en los anteriores.
 editar <- function(df) {
+
+  # 5.1 Recodificar variables existentes -------------------------------------
+  df <- df |>
+    mutate(
+      across(all_of(si_no), ~ case_match(.x, 1 ~ 1, 2 ~ 0)),
+      mujer    = case_match(sexo,  2 ~ 1, 1 ~ 0),  # 1 hombre, 2 mujer
+      cabecera = case_match(clase, 1 ~ 1, 2 ~ 0),  # 1 cabecera, 2 resto
+      meses_empresa  = replace_na(meses_empresa, 0),
+      tamano_empresa = replace_na(tamano_empresa, 0),
+      ocupado        = replace_na(ocupado, 0),  # NA = no está ocupado
+      max_grado_escolar = na_if(max_grado_escolar, 99),  # 99 = no sabe
+      # Montos de vivienda: 98 = no sabe, 99 = no informa.
+      across(c(arriendo_estimado, arriendo_pagado, cuota_amortizacion),
+             ~ if_else(.x %in% c(98, 99), NA, .x))
+    ) |>
+    select(-sexo, -clase)
+
+  # 5.2 Dummies de categóricas (lista `categorias`) ---------------------------
   for (v in names(categorias)) {
     for (d in names(categorias[[v]])) {
       df[[d]] <- as.numeric(df[[v]] == categorias[[v]][[d]])
     }
   }
-  df |>
+
+  # 5.3 Nuevas variables de la persona -----------------------------------------
+  # Aquí van las funciones de variables de la misma fila (p. ej. edad^2).
+  df <- df |>
+    mutate( 
+      # Anos de edad al cuadrado: para capturar efectos no lineales.
+      anos2 = anos^2,
+      # Años de educación aprobados. max_grado_escolar es el grado del colegio
+      # en primaria (1-5), secundaria (6-9) y media (10-13), pero en superior
+      # cuenta desde 0 los años de universidad. Un 0 significa que está
+      # cursando el primer año del nivel (diccionario DANE, P6210).
+      # max_educ 9 (no sabe) o NA queda NA.
+      anos_educ = case_when(
+        max_educ %in% c(1, 2) ~ 0,                     # ninguno, preescolar
+        max_educ == 4 & max_grado_escolar == 0 ~ 5,    # cursando 6°
+        max_educ == 5 & max_grado_escolar == 0 ~ 9,    # cursando 10°
+        max_educ %in% c(3, 4, 5) ~ max_grado_escolar,
+        max_educ == 6 ~ 11 + max_grado_escolar         # 11 de colegio
+      ),
+      # Antigüedad en la empresa en log(1 + meses), solo para ocupados.
+      # meses_empresa usa 0 para los no ocupados (ver 5.1); aquí quedan NA
+      # para no mezclar "no trabaja" con "0 meses". El log corrige la
+      # asimetría (hay antigüedades de más de 600 meses).
+      log_meses_empresa = if_else(ocupado == 1, log1p(meses_empresa), NA),
+      # Cruces de variables relacionadas (ver cruzar() arriba).
+      afiliado_x_regimen  = cruzar(afiliado_salud, regimen_salud),
+      regimen_x_posicion  = cruzar(regimen_salud, posicion_ocupacional),
+      posicion_x_tamano   = cruzar(posicion_ocupacional, tamano_empresa),
+      ocupado_x_actividad = cruzar(ocupado, actividad_sem_pasada),
+      regimen_x_posicion_x_tamano = cruzar(regimen_salud, posicion_ocupacional,
+                                           tamano_empresa)
+    )
+  # Agregados por nivel educativo: otro mutate porque cambia el .by.
+  df <- df |>
     mutate(
-      meses_empresa = replace_na(meses_empresa, 0),
-      tamano_empresa = replace_na(tamano_empresa, 0),
-      across(all_of(si_no), ~ case_match(.x, 1 ~ 1, 2 ~ 0)),
-      mujer    = case_match(sexo,  2 ~ 1, 1 ~ 0),  # 1 hombre, 2 mujer
-      cabecera = case_match(clase, 1 ~ 1, 2 ~ 0),  # 1 cabecera, 2 resto
-      # Montos de vivienda: 98 = no sabe, 99 = no informa.
-      across(c(arriendo_estimado, arriendo_pagado, cuota_amortizacion),
-             ~ if_else(.x %in% c(98, 99), NA, .x))
-    ) |>
-    select(-sexo, -clase) |>
-    # Proporción del hogar en edad de trabajar (edad_trabajar: 1 o NA).
-    mutate(prop_edad_trabajar = sum(edad_trabajar == 1, na.rm = TRUE) / personas_hogar,
-           .by = id) |>
-    # Variables 0/1 como enteros: ocupan la mitad de memoria que numeric.
+      # NA de años de educación: promedio de su nivel educativo.
+      anos_educ_imp = coalesce(anos_educ, mean(anos_educ, na.rm = TRUE)),
+      .by = max_educ
+    )
+
+  # 5.4 Nuevas variables del hogar ---------------------------------------------
+  # Agregados por hogar: se calculan con .by = id y se repiten en cada persona.
+  df <- df |>
+    mutate(
+      # Proporción del hogar en edad de trabajar (edad_trabajar: 1 o NA).
+      prop_edad_trabajar = sum(edad_trabajar == 1, na.rm = TRUE) / personas_hogar,
+      # Proporción de mujeres en el hogar
+      prop_mujer = sum(mujer == 1, na.rm = TRUE) / personas_hogar,
+      # Proporción del hogar ocupada (ocupado ya es 0/1, ver 5.1).
+      prop_ocupados_hogar = sum(ocupado == 1) / personas_hogar,
+      # Arriendo per cápita frente a la línea de pobreza, en logaritmo. Se usa
+      # el arriendo pagado o, si no paga, el estimado. El log corrige la
+      # asimetría (arriendos de hasta $600M). NA si no hay ninguno de los dos.
+      arriendo_pc_sobre_lp = log(coalesce(arriendo_pagado, arriendo_estimado) /
+                                   personas_hogar / linea_pobreza),
+      # Indice de educación del hogar
+      .by = id
+    )
+
+  # 5.5 Variables 0/1 como enteros (ocupan la mitad de memoria que numeric) ----
+  df <- df |>
     mutate(across(where(~ is.numeric(.x) && all(.x %in% c(0, 1, NA))),
                   as.integer))
 }
@@ -204,10 +280,35 @@ train_clean <- editar(train_clean) |>
   # digitación. Solo en train; test nunca se filtra (hay que predecirlo todo).
   filter(!cuartos_hogar %in% c(98, 43))
 test_clean  <- editar(test_clean)
+################################################################################
 
+## 6. Base aumentada (clases balanceadas)
+
+# Se replican los hogares pobres hasta que haya tantos hogares pobres como no
+# pobres. Se construye desde train_clean ya editada y filtrada, así que todo
+# cambio en las secciones anteriores pasa también a esta base. Las copias
+# conservan el id: los folds por hogar dejan todas las copias juntas. Solo
+# train; test nunca se aumenta.
+set.seed(123)  # Para reproducibilidad del reparto de copias extra.
+hogares_train <- distinct(train_clean, id, pobre)
+id_pobres     <- hogares_train$id[hogares_train$pobre == 1]
+n_no_pobres   <- sum(hogares_train$pobre == 0)
+
+# Cada hogar pobre se repite floor(no pobres / pobres) veces y el residuo se
+# reparte al azar (una copia más) para que el balance sea exacto.
+veces  <- n_no_pobres %/% length(id_pobres)
+extra  <- n_no_pobres - veces * length(id_pobres)
+copias <- tibble(id = id_pobres,
+                 copias = veces + seq_along(id_pobres) %in% sample(length(id_pobres), extra))
+
+train_clean_augmented <- bind_rows(
+  filter(train_clean, pobre == 0),
+  train_clean |> inner_join(copias, by = "id") |> uncount(copias)
+)
 
 ################################################################################
 
-## 6. Guardar bases limpias
+## 7. Guardar bases limpias
 write_rds(train_clean, here("data", "train_clean.rds"))
 write_rds(test_clean,  here("data", "test_clean.rds"))
+write_rds(train_clean_augmented, here("data", "train_clean_augmented.rds"))
