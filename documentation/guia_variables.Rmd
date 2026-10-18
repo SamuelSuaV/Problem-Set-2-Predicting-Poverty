@@ -21,6 +21,10 @@ library(tidyverse)
   `train <- read_rds(here("data", "train_clean.rds"))`.
 - **Unidad de observación: persona.** Cada fila es una persona; las variables
   del hogar se repiten para todas las personas del mismo `id`.
+- **Bases a nivel hogar:** `script/01b_bases_hogar.r` guarda `data/train_hogar.rds` y
+  `data/test_hogar.rds`, con una fila por hogar y agregados de sus miembros
+  (sección [Bases a nivel hogar](#bases-a-nivel-hogar) al final). Las usa
+  `script/04_logit.r`.
 - **Todo cambio a una variable se hace en `01_data_cleaning.r`** (no en los
   scripts de análisis) **y se actualiza esta guía.** Al compilarla, la última
   sección avisa si alguna variable de la base no está documentada aquí.
@@ -205,22 +209,164 @@ for (g in grupos) {
   `Ingtotugarr`). No están en test y casi determinan `pobre`; solo se deja
   `ingreso`.
 
+## Bases a nivel hogar
+
+`train_hogar` y `test_hogar` (`script/01b_bases_hogar.r`) tienen **una fila por hogar**.
+Se construyen desde `train_clean` y `test_clean` ya editadas, con la misma
+función para ambas.
+
+- **Unidad de gasto:** los conteos y proporciones excluyen al servicio
+  doméstico, pensionistas y trabajadores (`parentesco_jefe_hogar` 6 a 8),
+  porque `ingreso` (y por lo tanto `pobre`) es per cápita de la unidad de
+  gasto. `_pc` = dividido por `n_ug`.
+- **Sin `NA`:** quien no responde una pregunta porque no aplica (p. ej. las de
+  trabajo para no ocupados) cuenta como 0 en los conteos. Las variables del
+  jefe usan 0 cuando el jefe no está ocupado o no está afiliado.
+- **Ocupado** (`ocup`) = `ocupado` = 1 y en la unidad de gasto. **Formal** =
+  ocupado que cotiza a pensión (`cotiza_pension` = 1).
+
+```{r variables-hogar}
+variables_hogar <- tribble(
+  ~grupo, ~variable, ~descripcion, ~valores,
+
+  "Identificadores y ubicación", "id", "Llave del hogar", "Texto",
+  "Identificadores y ubicación", "pobre", "Hogar pobre (solo train). **Variable a predecir.**", "1/0",
+  "Identificadores y ubicación", "dominio", "dominio", "Texto",
+  "Identificadores y ubicación", "depto", "depto", "Código DANE (texto)",
+  "Identificadores y ubicación", "cabecera", "cabecera", "1/0",
+  "Identificadores y ubicación", "log_lp", "log(linea_pobreza)", "Numérico",
+
+  "Demografía", "n_ug", "Personas en la unidad de gasto (personas_unidad_gasto)", "Entero",
+  "Demografía", "log_n_ug", "log(n_ug)", "Numérico",
+  "Demografía", "n_menor6", "Menores de 6 años", "Entero",
+  "Demografía", "n_menor12", "Menores de 12 años", "Entero",
+  "Demografía", "n_menor18", "Menores de 18 años", "Entero",
+  "Demografía", "n_mayor65", "Personas de 65 años o más", "Entero",
+  "Demografía", "dependencia", "(menores de 18 + mayores de 65) / personas de 18 a 64 (mínimo 1 en el denominador)", "Numérico",
+  "Demografía", "prop_menores", "n_menor18 / n_ug", "Entre 0 y 1",
+  "Demografía", "prop_mujer_ug", "Proporción de mujeres en la unidad de gasto", "Entre 0 y 1",
+
+  "Trabajo", "n_ocup", "Ocupados", "Entero",
+  "Trabajo", "ocup_pc", "n_ocup / n_ug", "Entre 0 y 1",
+  "Trabajo", "ocup_por_adulto", "n_ocup / adultos (18+)", "Numérico",
+  "Trabajo", "n_desocup", "Desocupados", "Entero",
+  "Trabajo", "desocup_pc", "n_desocup / n_ug", "Entre 0 y 1",
+  "Trabajo", "n_inactivo_adulto", "Inactivos de 18 a 64 años", "Entero",
+  "Trabajo", "horas_pc", "Horas semanales trabajadas (principal + segundo trabajo) / n_ug", "Numérico",
+  "Trabajo", "horas_formal_pc", "Horas de los ocupados formales / n_ug", "Numérico",
+  "Trabajo", "horas_informal_pc", "Horas de los ocupados informales / n_ug", "Numérico",
+  "Trabajo", "n_segundo_trab", "Personas con segundo trabajo", "Entero",
+  "Trabajo", "n_quiere_mas_horas", "Personas que quieren trabajar más horas", "Entero",
+  "Trabajo", "n_oficios_hogar", "Adultos que la semana pasada se dedicaron a oficios del hogar", "Entero",
+  "Trabajo", "n_estudia", "Personas que la semana pasada estudiaron", "Entero",
+  "Trabajo", "n_pareja_ocup", "Ocupados que son pareja del jefe", "Entero",
+  "Trabajo", "n_hijos_ocup", "Ocupados que son hijos del jefe", "Entero",
+
+  "Calidad del empleo", "n_formal", "Ocupados formales", "Entero",
+  "Calidad del empleo", "formal_pc", "n_formal / n_ug", "Entre 0 y 1",
+  "Calidad del empleo", "prop_formal_ocup", "n_formal / n_ocup (0 si nadie trabaja)", "Entre 0 y 1",
+  "Calidad del empleo", "n_asalariado", "Ocupados obreros o empleados de empresa particular", "Entero",
+  "Calidad del empleo", "n_gobierno", "Ocupados empleados del gobierno", "Entero",
+  "Calidad del empleo", "n_domestico", "Ocupados empleados domésticos", "Entero",
+  "Calidad del empleo", "n_cuenta_propia", "Ocupados por cuenta propia", "Entero",
+  "Calidad del empleo", "n_patron", "Ocupados patrones o empleadores", "Entero",
+  "Calidad del empleo", "n_sin_pago", "Ocupados sin remuneración (posiciones 6 y 7)", "Entero",
+  "Calidad del empleo", "n_jornalero", "Ocupados jornaleros o peones", "Entero",
+  "Calidad del empleo", "n_empresa_sola", "Ocupados que trabajan solos (tamano_empresa 1)", "Entero",
+  "Calidad del empleo", "n_empresa_peq", "Ocupados en empresas de 2 a 5 personas", "Entero",
+  "Calidad del empleo", "n_empresa_grande", "Ocupados en empresas de 51 personas o más", "Entero",
+  "Calidad del empleo", "beneficios_pc", "Primas, subsidios y bonificaciones que reciben los miembros (10 preguntas sí/no) / n_ug", "Numérico",
+  "Calidad del empleo", "n_con_beneficios", "Personas con al menos una prima, subsidio o bonificación", "Entero",
+  "Calidad del empleo", "n_horas_extra", "Personas que recibieron horas extra", "Entero",
+  "Calidad del empleo", "max_log_meses", "Máximo log_meses_empresa entre los ocupados (0 si nadie trabaja)", "Numérico",
+  "Calidad del empleo", "n_of_profesional", "Ocupados con oficio profesional o técnico (CIUO-68, primer dígito 0-1)", "Entero",
+  "Calidad del empleo", "n_of_directivo", "Ocupados directivos (primer dígito 2)", "Entero",
+  "Calidad del empleo", "n_of_administrativo", "Ocupados administrativos (primer dígito 3)", "Entero",
+  "Calidad del empleo", "n_of_comercio", "Ocupados comerciantes y vendedores (primer dígito 4)", "Entero",
+  "Calidad del empleo", "n_of_servicios", "Ocupados en servicios (primer dígito 5)", "Entero",
+  "Calidad del empleo", "n_of_agro", "Ocupados agropecuarios (primer dígito 6)", "Entero",
+  "Calidad del empleo", "n_of_obrero", "Ocupados obreros y operarios (primer dígito 7-9)", "Entero",
+
+  "Salud", "prop_contributivo", "Proporción de la unidad de gasto en régimen contributivo", "Entre 0 y 1",
+  "Salud", "prop_subsidiado", "Proporción de la unidad de gasto en régimen subsidiado", "Entre 0 y 1",
+  "Salud", "n_especial", "Personas en régimen especial", "Entero",
+  "Salud", "n_no_afiliado", "Personas no afiliadas a salud", "Entero",
+
+  "Educación", "educ_max", "Máximo anos_educ_imp del hogar", "Numérico",
+  "Educación", "educ_media_adultos", "Promedio de anos_educ_imp de los adultos", "Numérico",
+  "Educación", "educ_ocup_media", "Promedio de anos_educ_imp de los ocupados (0 si nadie trabaja)", "Numérico",
+  "Educación", "educ_ocup_suma_pc", "Suma de anos_educ_imp de los ocupados / n_ug", "Numérico",
+  "Educación", "prop_superior", "Proporción de adultos con educación superior", "Entre 0 y 1",
+  "Educación", "n_sin_educ", "Adultos sin educación o solo preescolar", "Entero",
+  "Educación", "n_ocup_superior", "Ocupados con educación superior", "Entero",
+  "Educación", "superior_formal_pc", "Ocupados formales con educación superior / n_ug", "Numérico",
+
+  "Jefe del hogar", "jefe_edad", "Edad del jefe", "Entero",
+  "Jefe del hogar", "jefe_edad2", "jefe_edad al cuadrado", "Entero",
+  "Jefe del hogar", "jefe_mujer", "El jefe es mujer", "1/0",
+  "Jefe del hogar", "jefe_mujer_sola", "Jefe mujer y sin pareja en el hogar", "1/0",
+  "Jefe del hogar", "jefe_educ", "anos_educ_imp del jefe", "Numérico",
+  "Jefe del hogar", "jefe_ocup", "El jefe está ocupado", "1/0",
+  "Jefe del hogar", "jefe_formal", "El jefe es ocupado formal", "1/0",
+  "Jefe del hogar", "jefe_desocup", "El jefe está desocupado", "1/0",
+  "Jefe del hogar", "jefe_log_meses", "log_meses_empresa del jefe (0 si no trabaja)", "Numérico",
+  "Jefe del hogar", "jefe_posicion", "posicion_ocupacional del jefe", "Códigos DANE; 0 = no ocupado",
+  "Jefe del hogar", "jefe_regimen", "regimen_salud del jefe", "Códigos DANE; 0 = no afiliado",
+  "Jefe del hogar", "jefe_tamano", "tamano_empresa del jefe", "Códigos DANE; 0 = no ocupado",
+  "Jefe del hogar", "jefe_oficio", "oficio del jefe (CIUO-68, 2 dígitos)", "Código; 0 = no ocupado",
+
+  "Ingresos no laborales", "any_pension", "Algún miembro es pensionado o recibe pensión de jubilación", "1/0",
+  "Ingresos no laborales", "any_arriendos", "Algún miembro recibe arriendos o pensiones", "1/0",
+  "Ingresos no laborales", "any_intereses", "Algún miembro recibe intereses o dividendos", "1/0",
+  "Ingresos no laborales", "any_exterior", "Algún miembro recibe dinero del exterior", "1/0",
+  "Ingresos no laborales", "any_hogares_pais", "Algún miembro recibe dinero de otros hogares del país", "1/0",
+  "Ingresos no laborales", "any_ayudas", "Algún miembro recibe ayudas de instituciones", "1/0",
+  "Ingresos no laborales", "any_cesantias", "Algún miembro recibe cesantías", "1/0",
+  "Ingresos no laborales", "any_pension_alim", "Algún miembro recibe pensión alimenticia", "1/0",
+  "Ingresos no laborales", "any_otros_ing", "Algún miembro recibe otros ingresos (recibio_otros_ingresos)", "1/0",
+  "Ingresos no laborales", "n_fuentes_no_lab", "any_pension + any_arriendos + any_intereses + any_exterior + any_cesantias", "Entero de 0 a 5",
+
+  "Vivienda", "tenencia", "tenencia_vivienda", "Códigos DANE",
+  "Vivienda", "cuartos_pc", "cuartos_hogar / personas_hogar", "Numérico",
+  "Vivienda", "pers_por_dormitorio", "personas_hogar / cuartos_dormir", "Numérico",
+  "Vivienda", "log_arriendo_pc_lp", "arriendo_pc_sobre_lp; los NA se imputan con la mediana de train (en train y en test)", "Numérico",
+  "Vivienda", "arriendo_na", "No había arriendo pagado ni estimado (log_arriendo_pc_lp imputado)", "1/0",
+  "Vivienda", "arriendo_es_pagado", "El arriendo es pagado (no estimado)", "1/0",
+  "Vivienda", "log_cuota_pc_lp", "log(cuota_amortizacion / personas_hogar / linea_pobreza); 0 si no paga cuota", "Numérico"
+)
+```
+
+```{r tablas-hogar, results = "asis"}
+for (g in unique(variables_hogar$grupo)) {
+  cat("\n\n### ", g, "\n\n", sep = "")
+  variables_hogar |>
+    filter(grupo == g) |>
+    select(-grupo) |>
+    knitr::kable(col.names = c("Variable", "Descripción", "Valores")) |>
+    print()
+}
+```
+
 ## Chequeo: ¿la guía está al día?
 
 ```{r chequeo}
-ruta <- here("data", "train_clean.rds")
-if (file.exists(ruta)) {
+chequear <- function(archivo, documentadas) {
+  ruta <- here("data", archivo)
+  if (!file.exists(ruta)) {
+    cat("No se encontró data/", archivo, ": corre script/01_data_cleaning.r primero.\n", sep = "")
+    return(invisible())
+  }
   en_base <- names(read_rds(ruta))
-  sin_documentar <- setdiff(en_base, variables$variable)
-  ya_no_existen  <- setdiff(variables$variable, en_base)
+  sin_documentar <- setdiff(en_base, documentadas)
+  ya_no_existen  <- setdiff(documentadas, en_base)
   if (length(sin_documentar) + length(ya_no_existen) == 0) {
-    cat("La guía documenta las", length(en_base), "variables de train_clean.\n")
+    cat("La guía documenta las", length(en_base), "variables de", archivo, "\n")
   } else {
-    cat("La guía NO está al día.\n",
+    cat("La guía NO está al día (", archivo, ").\n",
         "Variables en la base sin documentar:", toString(sin_documentar), "\n",
         "Variables en la guía que ya no están en la base:", toString(ya_no_existen), "\n")
   }
-} else {
-  cat("No se encontró data/train_clean.rds: corre script/01_data_cleaning.r primero.\n")
 }
+chequear("train_clean.rds", variables$variable)
+chequear("train_hogar.rds", variables_hogar$variable)
 ```
