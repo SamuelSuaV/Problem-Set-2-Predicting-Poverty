@@ -1,0 +1,24 @@
+\begin{table}
+
+\caption{\label{tab:boosting_grid}Las 10 mejores configuraciones de LightGBM por F1 de validación cruzada (5 folds)}
+\centering
+\begin{tabular}[t]{lrrrrrrrlrr}
+\toprule
+Búsqueda & Learning rate & Hojas & Profundidad & Mín. datos hoja & Fracción variables & Fracción bagging & L2 & Iteraciones & Umbral & F1 (CV)\\
+\midrule
+Random search & 0.02 & 127 & 6 & 20 & 0.7 & 1.0 & 0 & 1313 & 0.37 & 0.7537\\
+Random search & 0.02 & 255 & 6 & 20 & 0.7 & 1.0 & 0 & 1313 & 0.37 & 0.7537\\
+Random search & 0.05 & 63 & -1 & 50 & 0.7 & 0.9 & 1 & 375 & 0.38 & 0.7532\\
+Random search & 0.02 & 15 & 8 & 100 & 0.9 & 0.9 & 10 & 2303 & 0.37 & 0.7530\\
+Grilla de clase & 0.01 & 16 & -1 & 20 & 1.0 & 1.0 & 0 & 4980 & 0.36 & 0.7529\\
+\addlinespace
+Random search & 0.02 & 31 & -1 & 50 & 0.9 & 0.9 & 1 & 1343 & 0.35 & 0.7529\\
+Random search & 0.05 & 127 & 8 & 100 & 0.7 & 1.0 & 0 & 301 & 0.35 & 0.7527\\
+Random search & 0.02 & 15 & -1 & 50 & 0.5 & 0.7 & 10 & 2904 & 0.35 & 0.7527\\
+Random search & 0.02 & 63 & -1 & 50 & 0.9 & 0.7 & 0 & 881 & 0.36 & 0.7525\\
+Grilla de clase & 0.01 & 32 & -1 & 20 & 1.0 & 1.0 & 0 & 3009 & 0.37 & 0.7525\\
+\addlinespace
+Logit lasso con interacciones (06) &  &  &  &  &  &  &  &  & 0.37 & 0.7451\\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,25 @@
+\begin{table}
+
+\caption{\label{tab:logit_parsimonia}F1 de validación cruzada de un logit sin penalizar con las k primeras variables del ranking del lasso}
+\centering
+\begin{tabular}[t]{rp{9cm}rr}
+\toprule
+k & Variables agregadas & F1 (CV) & Umbral\\
+\midrule
+3 & log\_arriendo\_pc\_lp, prop\_contributivo, n\_menor18 & 0.5848 & 0.27\\
+5 & educ\_ocup\_suma\_pc, jefe\_regimen & 0.6351 & 0.33\\
+8 & horas\_pc, n\_formal, n\_con\_beneficios & 0.6591 & 0.33\\
+10 & n\_fuentes\_no\_lab, pers\_por\_dormitorio & 0.6732 & 0.35\\
+12 & any\_arriendos, n\_asalariado & 0.6739 & 0.34\\
+\addlinespace
+15 & prop\_menores, tenencia, arriendo\_na & 0.6970 & 0.33\\
+20 & n\_desocup, n\_ocup\_superior, prop\_superior, n\_jornalero, educ\_media\_adultos & 0.7039 & 0.34\\
+25 & dominio, cuartos\_pc, cabecera, n\_empresa\_grande, arriendo\_es\_pagado & 0.7106 & 0.36\\
+30 & n\_ocup, n\_especial, n\_sin\_pago, n\_oficios\_hogar, any\_pension & 0.7157 & 0.35\\
+40 & n\_patron, n\_quiere\_mas\_horas, n\_inactivo\_adulto, jefe\_posicion, any\_hogares\_pais, dependencia, depto, beneficios\_pc, n\_sin\_educ, n\_of\_profesional & 0.7273 & 0.35\\
+\addlinespace
+50 & max\_log\_meses, jefe\_oficio, jefe\_mujer, jefe\_mujer\_sola, jefe\_log\_meses, jefe\_educ, n\_domestico, n\_segundo\_trab, n\_gobierno, jefe\_tamano & 0.7313 & 0.34\\
+94 & Todas las demás (44) & 0.7357 & 0.35\\
+\bottomrule
+\end{tabular}
+\end{table}
