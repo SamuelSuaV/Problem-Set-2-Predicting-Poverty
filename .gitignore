@@ -52,3 +52,12 @@ rsconnect/
 
 # macOS
 .DS_Store
+
+# Archivos auxiliares de LaTeX (se regeneran al compilar; el PDF sí se versiona)
+latex/*.aux
+latex/*.fdb_latexmk
+latex/*.fls
+latex/*.log
+latex/*.out
+latex/*.toc
+latex/*.synctex.gz
