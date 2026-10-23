@@ -147,6 +147,8 @@ variables <- tribble(
   # Hogar y vivienda
   "Hogar y vivienda", "cuartos_hogar", "P5000", "Cuartos del hogar (incluye sala-comedor)", "Entero",
   "Hogar y vivienda", "cuartos_dormir", "P5010", "Cuartos donde duermen", "Entero",
+  "Hogar y vivienda", "personas_por_dormitorio", "Creada", "personas_hogar / cuartos_dormir (hacinamiento)", "Numérico > 0",
+  "Hogar y vivienda", "personas_por_cuarto", "Creada", "personas_hogar / cuartos_hogar (cuartos_hogar incluye sala-comedor)", "Numérico > 0",
   "Hogar y vivienda", "tenencia_vivienda", "P5090", "Tenencia de la vivienda", "1 propia pagada, 2 propia pagando, 3 arriendo, 4 usufructo, 5 posesión sin título, 6 otra",
   "Hogar y vivienda", "vivienda_propia_pagada", "Creada (P5090)", "tenencia_vivienda = 1 (propia, pagada)", "1/0",
   "Hogar y vivienda", "vivienda_propia_pagando", "Creada (P5090)", "tenencia_vivienda = 2 (propia, la están pagando)", "1/0",
@@ -159,7 +161,12 @@ variables <- tribble(
   "Hogar y vivienda", "arriendo_pagado", "P5140", "Arriendo mensual que paga", "Pesos; 98 (no sabe) y 99 (no informa) pasan a NA",
   "Hogar y vivienda", "personas_hogar", "Nper", "Personas en el hogar", "Entero",
   "Hogar y vivienda", "personas_unidad_gasto", "Npersug", "Personas en la unidad de gasto", "Entero",
-  "Hogar y vivienda", "prop_edad_trabajar", "Creada", "Personas en edad de trabajar / personas_hogar", "Entre 0 y 1",
+  "Hogar y vivienda", "prop_edad_trabajar", "Creada", "Personas en edad de trabajar / personas_hogar. No es una tasa de dependencia: edad_trabajar es 12+ en cabecera y 10+ en resto, sin límite superior, así que solo descuenta a los niños", "Entre 0 y 1",
+  "Hogar y vivienda", "prop_dependientes", "Creada", "Dependientes (menores de 15 y mayores de 64) / personas_hogar", "Entre 0 y 1",
+  "Hogar y vivienda", "tasa_dependencia", "Creada", "Tasa de dependencia: (menores de 15 + mayores de 64) / personas de 15 a 64", "Numérico >= 0; NA si nadie en el hogar tiene entre 15 y 64",
+  "Hogar y vivienda", "educ_max_adultos", "Creada", "Máximo de anos_educ_imp entre los adultos (18+) del hogar", "Numérico; NA si no hay adultos con educación conocida",
+  "Hogar y vivienda", "cv_educ_adultos", "Creada", "Coeficiente de variación (sd / media) de anos_educ_imp entre los adultos (18+) del hogar", "Numérico >= 0; NA si hay menos de 2 adultos con educación conocida; 0 si todos tienen 0 años",
+  "Hogar y vivienda", "cv_horas_ocupados", "Creada", "Coeficiente de variación de horas_trabajo_semana entre los ocupados del hogar", "Numérico >= 0; NA si hay menos de 2 ocupados",
   "Hogar y vivienda", "prop_mujer", "Creada", "Mujeres del hogar / personas_hogar", "Entre 0 y 1",
   "Hogar y vivienda", "prop_ocupados_hogar", "Creada", "Ocupados del hogar / personas_hogar", "Entre 0 y 1",
   "Hogar y vivienda", "arriendo_pc_sobre_lp", "Creada", "log(arriendo / personas_hogar / linea_pobreza); arriendo = arriendo_pagado o, si no paga, arriendo_estimado", "Numérico; 0 = arriendo per cápita igual a la línea de pobreza; NA si no hay arriendo pagado ni estimado",
@@ -172,7 +179,8 @@ variables <- tribble(
   "Solo en train", "Indigente", "Indigente", "Hogar indigente: ingreso < linea_indigencia", "1 = indigente, 0 = no",
   "Solo en train", "Npobres", "Npobres", "Número de pobres en el hogar", "Entero",
   "Solo en train", "Nindigentes", "Nindigentes", "Número de indigentes en el hogar", "Entero",
-  "Solo en train", "Estrato1", "Estrato1", "Estrato socioeconómico (energía o sextil de ICV)", "1 a 6"
+  "Solo en train", "Estrato1", "Estrato1", "Estrato socioeconómico (energía o sextil de ICV)", "1 a 6",
+  "Solo en train", "hogar_rico", "Creada (Ingpcug)", "Hogar en el 10% de mayor ingreso per cápita (de los hogares, sin factores de expansión). Define train_clean_sin_ricos", "1 = sí, 0 = no"
 )
 
 grupos <- unique(variables$grupo)

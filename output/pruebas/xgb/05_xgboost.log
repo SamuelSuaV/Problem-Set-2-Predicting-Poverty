@@ -1,0 +1,56 @@
+16 variables - train_clean - nrounds = 500 - max_depth = 6 - eta = 0.05 - min_child_weight = 10 - umbral = 0.3 - F1 = 0.6929 
+# A tibble: 16 × 2
+   variable                    importancia
+   <chr>                             <dbl>
+ 1 arriendo_pc_sobre_lp          38.4     
+ 2 prop_ocupados_hogar           26.8     
+ 3 regimen_salud                 14.9     
+ 4 tenencia_vivienda              7.28    
+ 5 posicion_ocupacional           2.59    
+ 6 anos_educ_imp                  2.23    
+ 7 recibio_arriendos_pensiones    1.93    
+ 8 horas_trabajo_semana           1.83    
+ 9 anos                           0.967   
+10 actividad_sem_pasada           0.858   
+11 log_meses_empresa              0.840   
+12 tamano_empresa                 0.785   
+13 ayudas_instituciones           0.322   
+14 mujer                          0.179   
+15 afiliado_salud                 0.0643  
+16 ocupado                        0.000562
+Guardado: XGB_nrounds_500_depth_6_eta_005_threshold_03.csv - 66168 hogares
+   nrounds max_depth  eta gamma colsample_bytree min_child_weight subsample
+1      500         6 0.05     0              0.8               10      0.63
+2      500         6 0.10     0              0.8               50      0.63
+3      500         6 0.05     0              0.8               50      0.63
+4      500         6 0.10     0              0.8               10      0.63
+5      250         6 0.10     0              0.8               50      0.63
+6      500         4 0.10     0              0.8               50      0.63
+7      250         6 0.10     0              0.8               10      0.63
+8      500         4 0.10     0              0.8               10      0.63
+9      250         6 0.05     0              0.8               50      0.63
+10     250         6 0.05     0              0.8               10      0.63
+11     250         4 0.10     0              0.8               50      0.63
+12     500         4 0.05     0              0.8               10      0.63
+13     250         4 0.10     0              0.8               10      0.63
+14     500         4 0.05     0              0.8               50      0.63
+15     250         4 0.05     0              0.8               50      0.63
+16     250         4 0.05     0              0.8               10      0.63
+   umbral        f1
+1    0.30 0.6929101
+2    0.30 0.6928903
+3    0.29 0.6928037
+4    0.32 0.6927175
+5    0.31 0.6925886
+6    0.29 0.6925325
+7    0.29 0.6922582
+8    0.30 0.6919533
+9    0.29 0.6912459
+10   0.29 0.6909326
+11   0.30 0.6906081
+12   0.29 0.6903236
+13   0.31 0.6901024
+14   0.28 0.6895795
+15   0.31 0.6855720
+16   0.29 0.6851136
+=== TERMINADO

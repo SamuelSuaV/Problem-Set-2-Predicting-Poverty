@@ -15,9 +15,10 @@
 
 ################################################################################
 
-# Input:  Base limpia creada en 01_data_cleaning.r; train_clean.rds .
+# Input:  Bases limpias creadas en 01_data_cleaning.r; train_clean.rds (o
+#         train_clean_augmented.rds), test_clean.rds .
 # Output: F1 por fold y promedio y resultados del grid search (en consola);
-#         output/submissions/NB_laplace_<l>_threshold_<c>.csv .
+#         output/submissions/NB_<base>_laplace_<l>_threshold_<c>.csv .
 
 ################################################################################
 
@@ -34,8 +35,22 @@ p_load(
 
 ## 2. Cargar datos
 
-train <- read_rds(here("data", "train_clean.rds"))
+# Base de entrenamiento:
+#   "train_clean": base original.
+#   "train_clean_augmented": hogares pobres replicados hasta balancear las
+#     clases (ver 01). Las copias conservan el id y quedan en el mismo fold; al
+#     validar, prob_hogar() las junta en un solo hogar.
+#   "train_clean_sin_ricos": se entrena sin el 10% de hogares más ricos, pero
+#     se valida con todos los hogares (si los ricos salieran también de la
+#     validación, el F1 se mediría sobre una población distinta a la de test).
+#     Por eso se carga train_clean y se usa hogar_rico.
+base <- "train_clean"
+train <- read_rds(here("data", paste0(if (base == "train_clean_sin_ricos") "train_clean" else base, ".rds")))
 test <- read_rds(here("data", "test_clean.rds"))
+
+# Filas con las que se entrenan los modelos (en la validación cruzada y en el
+# modelo final). La validación usa siempre todas las filas del fold.
+entrenar <- if (base == "train_clean_sin_ricos") train$hogar_rico == 0 else rep(TRUE, nrow(train))
 
 
 y <- factor(train$pobre)
@@ -159,7 +174,7 @@ cv_naive_bayes <- function(x, y, fold, id = train$id) {
   f1 <- numeric(k)
   for (i in 1:k) {
     prueba <- fold == i
-    modelo <- naiveBayes(x[!prueba, ], y[!prueba])
+    modelo <- naiveBayes(x[!prueba & entrenar, ], y[!prueba & entrenar])
 
     # Todos los miembros de un hogar comparten pobre: se toma uno por hogar.
     hogar <- prob_hogar(modelo, x[prueba, ], id[prueba]) |>
@@ -215,7 +230,7 @@ grid_search <- function(x, y, fold, id = train$id) {
   resultados <- parallel::mclapply(grid_laplace, function(l) {
     map_dfr(1:max(fold), function(i) {
       prueba <- fold == i
-      modelo <- naiveBayes(x[!prueba, ], y[!prueba], laplace = l)
+      modelo <- naiveBayes(x[!prueba & entrenar, ], y[!prueba & entrenar], laplace = l)
       hogar  <- prob_hogar(modelo, x[prueba, ], id[prueba]) |>
         left_join(distinct(tibble(id = id[prueba], real = y[prueba])), by = "id")
       tibble(laplace = l, fold = i, umbral = grid_umbral,
@@ -245,7 +260,7 @@ cat("Mejor: laplace =", mejor$laplace, "- umbral =", mejor$umbral,
 
 # Mejor modelo (xtodas) con los hiperparámetros del grid search y el mismo
 # tratamiento de variables que en la validación cruzada.
-modelo_xtodas <- naiveBayes(preparar(xtodas), y, laplace = mejor$laplace)
+modelo_xtodas <- naiveBayes(preparar(xtodas)[entrenar, ], y[entrenar], laplace = mejor$laplace)
 # Una predicción por hogar: promedio de los log odds de sus miembros.
 predicciones <- prob_hogar(modelo_xtodas,
                            preparar(test |> select(all_of(names(xtodas)))),
@@ -255,9 +270,12 @@ nrow(predicciones)  # una fila por hogar de test
 predicciones <- predicciones |> select(id, pred) |> rename(pobre = pred)
 
 # Nombre con formato Kaggle: modelo_hiperparámetro_valor, sin punto decimal
-# (p. ej. NB_laplace_0_threshold_045.csv). Sale de los valores del grid search.
+# (p. ej. NB_laplace_0_threshold_045.csv; con otra base, NB_aug_... o
+# NB_sinricos_...). Sale de los valores del grid search.
 sin_punto <- function(v) gsub(".", "", as.character(round(v, 2)), fixed = TRUE)
-archivo <- paste0("NB_laplace_", sin_punto(mejor$laplace),
+etiqueta_base <- c(train_clean = "", train_clean_augmented = "aug_",
+                   train_clean_sin_ricos = "sinricos_")[[base]]
+archivo <- paste0("NB_", etiqueta_base, "laplace_", sin_punto(mejor$laplace),
                   "_threshold_", sin_punto(mejor$umbral), ".csv")
 dir.create(here("output", "submissions"), showWarnings = FALSE)
 predicciones |> write_csv(here("output", "submissions", archivo))

@@ -4,11 +4,14 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{float}
+% Permite cortar línea en los guiones bajos de los nombres de variables y
+% archivos (\texttt{...}), que si no se salen del margen.
+\usepackage[strings,nohyphen]{underscore}
 
 % Tablas y figuras generadas por script/02_data_analysis.r.
 \graphicspath{{../output/figures/}}
 
-\title{Predicting Poverty: análisis descriptivo}
+\title{Predicting Poverty: análisis descriptivo y modelos}
 \author{Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle}
 \date{\today}
 
@@ -54,5 +57,124 @@ por dominio, por lo que se usa la mediana como referencia.
     se corta en el percentil 99 del ingreso (\$4.400.000).}
   \label{fig:continuas}
 \end{figure}
+
+\section{Modelos}
+\sloppy
+
+\subsection{Evaluación}
+
+Todos los modelos se evalúan igual, así que sus $F_1$ son comparables:
+
+\begin{itemize}
+  \item \textbf{Validación cruzada por hogar:} 10 folds construidos sobre los
+    hogares (\texttt{set.seed(123)}), de modo que todas las personas de un
+    hogar quedan en el mismo fold.
+  \item \textbf{Predicción por hogar:} el modelo predice la probabilidad de
+    cada persona; la probabilidad del hogar es el promedio de los log odds,
+    $\log(p/(1-p))$, de sus miembros. El hogar se clasifica como pobre si esa
+    probabilidad supera el umbral.
+  \item \textbf{Métrica:} $F_1$ sobre los hogares del fold de validación,
+    promediado entre los 10 folds. El umbral se elige en la misma validación
+    cruzada, por lo que el $F_1$ reportado es levemente optimista.
+\end{itemize}
+
+\subsection{Mejores modelos}
+
+Los dos mejores modelos usan las mismas 16 variables:
+\texttt{anos}, \texttt{anos\_educ\_imp}, \texttt{mujer}, \texttt{ocupado},
+\texttt{afiliado\_salud}, \texttt{regimen\_salud},
+\texttt{actividad\_sem\_pasada}, \texttt{log\_meses\_empresa},
+\texttt{tamano\_empresa}, \texttt{posicion\_ocupacional},
+\texttt{horas\_trabajo\_semana}, \texttt{arriendo\_pc\_sobre\_lp},
+\texttt{prop\_ocupados\_hogar}, \texttt{tenencia\_vivienda},
+\texttt{recibio\_arriendos\_pensiones} y \texttt{ayudas\_instituciones}.
+Las categóricas con códigos del DANE y las dummies entran como factores.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Mejores modelos por validación cruzada.}
+  \label{tab:modelos}
+  \begin{tabular}{@{}p{2.3cm}p{2.4cm}p{4.6cm}cc@{}}
+    \toprule
+    Modelo & Script & Hiperparámetros & Umbral & $F_1$ \\
+    \midrule
+    Naive Bayes & \texttt{03\_naive\_bayes.r} & \texttt{laplace} = 0 & 0,42 & 0,675 \\
+    CART & \texttt{04\_carts.r} & \texttt{cp} = 0,000025; gini; up-sampling
+      dentro de cada fold & 0,61 & 0,670 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Las predicciones de test están en \texttt{output/submissions/}:
+\texttt{NB\_laplace\_0\_threshold\_042.csv} (naive Bayes) y
+\texttt{CART\_up\_cp\_0000025\_threshold\_061.csv} (CART). Las dos se
+regeneran al correr cada script.
+
+\subsection{Cómo replicarlos}
+
+Desde la raíz del repositorio:
+
+\begin{enumerate}
+  \item \texttt{Rscript script/01\_data\_cleaning.r}: crea las bases limpias
+    (\texttt{data/train\_clean.rds}, \texttt{data/test\_clean.rds} y
+    \texttt{data/train\_clean\_augmented.rds}).
+  \item \textbf{Naive Bayes:} \texttt{Rscript script/03\_naive\_bayes.r}. La
+    sección 4 hace el grid search de \texttt{laplace} y umbral, y la sección 5
+    guarda la submission con el nombre de los hiperparámetros elegidos.
+  \item \textbf{CART:} \texttt{Rscript script/04\_carts.r}. La sección 4
+    estima \verb|cv_arbol(x1, "up")|, que elige \texttt{cp} y umbral por
+    validación cruzada; la sección 5 guarda la submission.
+\end{enumerate}
+
+\subsection{Importancia de las variables}
+
+Para medir qué variables son más relevantes se estimó un CART con todas las
+variables disponibles (una versión por concepto), 66 interacciones entre las
+numéricas centrales y algunas razones (146 columnas), con la base aumentada y
+un grid search de \texttt{cp}, \texttt{minbucket}, criterio de partición,
+\texttt{maxdepth}, \texttt{maxsurrogate} y umbral (código en
+\texttt{output/pruebas/todas/}). El mejor modelo (\texttt{minbucket} = 100,
+entropía, \texttt{maxdepth} = 15, 5 cortes sustitutos, umbral 0,70) tiene un
+$F_1$ de 0,670, igual al CART con 16 variables.
+Un CART solo con las seis variables y las tres interacciones más importantes
+del Cuadro~\ref{tab:importancia}, con la misma grilla, llega a un $F_1$ de
+0,641 (código en \texttt{output/pruebas/top9/}): las demás variables sí
+aportan.
+
+El Cuadro~\ref{tab:importancia} muestra la importancia por reducción de la
+impureza, normalizada para que sume 100. La importancia de cada interacción
+se reparte por partes iguales entre las variables que la forman. La columna
+``rpart'' suma los cortes principales y los sustitutos; ``cortes
+principales'' cuenta solo los cortes que el árbol usa.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Importancia de las variables (reducción de impureza, suma 100).}
+  \label{tab:importancia}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Variable & rpart & Cortes principales \\
+    \midrule
+    \texttt{prop\_ocupados\_hogar}  & 29,5 & 21,6 \\
+    \texttt{arriendo\_pc\_sobre\_lp} & 17,5 & 15,6 \\
+    \texttt{educ\_max\_adultos}     & 10,6 & 21,4 \\
+    \texttt{linea\_pobreza}         &  9,8 &  8,7 \\
+    \texttt{cuartos\_dormir}        &  5,6 &  0,4 \\
+    \texttt{regimen\_salud}         &  4,5 & 15,2 \\
+    \texttt{anos\_educ\_imp}        &  3,9 &  0,2 \\
+    \texttt{prop\_dependientes}     &  3,5 &  0,3 \\
+    \texttt{personas\_hogar}        &  3,3 &  0,6 \\
+    \texttt{anos}                  &  2,0 &  0,9 \\
+    \texttt{tenencia\_vivienda}     &  1,6 &  5,3 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+La interacción más importante es educación máxima de los adultos por
+proporción de ocupados del hogar: concentra el 40\% de la reducción de
+impureza en los cortes principales. Las interacciones y razones suman el 70\%
+de la importancia (rpart).
 
 \end{document}

@@ -1,7 +1,6 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.26 (TeX Live 2024) (preloaded format=pdflatex 2024.11.20)  3 OCT 2026 01:13
+This is pdfTeX, Version 3.141592653-2.6-1.40.26 (TeX Live 2024) (preloaded format=pdflatex 2024.11.20)  21 OCT 2026 22:25
 entering extended mode
  restricted \write18 enabled.
- file:line:error style messages enabled.
  %&-line parsing enabled.
 **resultados.tex
 (./resultados.tex
@@ -121,30 +120,42 @@ Package: float 2001/11/08 v1.3d Float enhancements (AL)
 \@float@everytoks=\toks21
 \@floatcapt=\box52
 )
+(/usr/local/texlive/2024/texmf-dist/tex/latex/underscore/underscore.sty
+Package: underscore 2006/09/13
+LaTeX Info: Redefining \_ on input line 42.
+)
+(/usr/local/texlive/2024/texmf-dist/tex/latex/firstaid/underscore-ltx.sty
+Package: underscore-ltx 2023/09/20 LaTeX firstaid to make underscore protected 
+
+)
 (/usr/local/texlive/2024/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2024-02-20 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count273
 \l__pdf_internal_box=\box53
 )
-No file resultados.aux.
+(./resultados.aux
+LaTeX Info: Redefining \. on input line 9.
+LaTeX Info: Redefining \% on input line 9.
+)
 \openout1 = `resultados.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Info: Redefining \. on input line 15.
-LaTeX Info: Redefining \% on input line 15.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Info: Redefining \. on input line 18.
+LaTeX Info: Redefining \% on input line 18.
+
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
 *geometry* verbose mode - [ preamble ] result:
@@ -202,26 +213,22 @@ File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <14.4> on input line 16.
+(Font)              <14.4> on input line 19.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 16.
+(Font)              <7> on input line 19.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <12> on input line 23.
+(Font)              <12> on input line 26.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <8> on input line 23.
+(Font)              <8> on input line 26.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <6> on input line 23.
-
-
-LaTeX Warning: Reference `tab:descriptivas' on page 1 undefined on input line 2
-7.
+(Font)              <6> on input line 26.
 
 (../output/tables/descriptivas.tex)
 <../output/figures/ingreso_dummies.png, id=1, 722.7pt x 433.62pt>
 File: ../output/figures/ingreso_dummies.png Graphic file (type png)
 <use ../output/figures/ingreso_dummies.png>
 Package pdftex.def Info: ../output/figures/ingreso_dummies.png  used on input l
-ine 44.
+ine 47.
 (pdftex.def)             Requested size: 472.03123pt x 283.21927pt.
  [1
 
@@ -231,42 +238,72 @@ al/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc}] [2]
 File: ../output/figures/ingreso_continuas.png Graphic file (type png)
 <use ../output/figures/ingreso_continuas.png>
 Package pdftex.def Info: ../output/figures/ingreso_continuas.png  used on input
- line 52.
+ line 55.
 (pdftex.def)             Requested size: 472.03123pt x 283.21927pt.
  [3 <../output/figures/ingreso_dummies.png>]
-[4 <../output/figures/ingreso_continuas.png>] (./resultados.aux
-LaTeX Info: Redefining \. on input line 8.
-LaTeX Info: Redefining \% on input line 8.
+Underfull \hbox (badness 5133) in paragraph at lines 69--72
+[]\OT1/cmr/bx/n/12 Validaci^^Son cru-za-da por ho-gar: \OT1/cmr/m/n/12 10 folds
+ cons-trui-dos so-bre los ho-ga-res
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 83--92
+\OT1/cmtt/m/n/12 lp\OT1/cmr/m/n/12 , \OT1/cmtt/m/n/12 prop_ocupados_hogar\OT1/c
+mr/m/n/12 , \OT1/cmtt/m/n/12 tenencia_vivienda\OT1/cmr/m/n/12 , \OT1/cmtt/m/n/1
+2 recibio_arriendos_pensiones \OT1/cmr/m/n/12 y
+ []
+
+[4 <../output/figures/ingreso_continuas.png>]
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <10.95> on input line 98.
+
+Underfull \hbox (badness 10000) in paragraph at lines 102--102
+[]\OT1/cmtt/m/n/10.95 03_naive_
+ []
+
+
+Underfull \hbox (badness 1558) in paragraph at lines 103--104
+\OT1/cmr/m/n/10.95 sampling den-tro de ca-da
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 119--122
+[]\OT1/cmtt/m/n/12 Rscript script/01_data_cleaning.r\OT1/cmr/m/n/12 : crea las 
+ba-ses lim-pias (\OT1/cmtt/m/n/12 data/train_
+ []
+
+[5] [6] (./resultados.aux
+LaTeX Info: Redefining \. on input line 9.
+LaTeX Info: Redefining \% on input line 9.
 )
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-02-20>
  ***********
-
-
-LaTeX Warning: There were undefined references.
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
  ) 
 Here is how much of TeX's memory you used:
- 3457 strings out of 474116
- 57367 string characters out of 5743681
+ 3544 strings out of 474116
+ 59364 string characters out of 5743681
  1939187 words of memory out of 5000000
- 25816 multiletter control sequences out of 15000+600000
- 563267 words of font info for 53 fonts, out of 8000000 for 9000
+ 25892 multiletter control sequences out of 15000+600000
+ 564827 words of font info for 59 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 57i,9n,65p,260b,365s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 57i,11n,65p,260b,365s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb
-></usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb>
-</usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></
-usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></us
-r/local/texlive/2024/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb>
-Output written on resultados.pdf (4 pages, 1451641 bytes).
+></usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb>
+</usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb><
+/usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></u
+sr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr
+/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/l
+ocal/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/loca
+l/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local
+/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/
+texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt12.pfb></usr/local/t
+exlive/2024/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb>
+Output written on resultados.pdf (6 pages, 1527773 bytes).
 PDF statistics:
- 45 PDF objects out of 1000 (max. 8388607)
- 26 compressed objects within 1 object stream
+ 81 PDF objects out of 1000 (max. 8388607)
+ 48 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  11 words of extra memory for PDF output out of 10000 (max. 10000000)
 
