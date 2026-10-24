@@ -1,0 +1,333 @@
+2026-10-23 21:25:14 - MODO PRUEBA: 16495 hogares 
+2026-10-23 21:25:17 - Ingreso predicho: hogar = FALSE depth = 6 mcw = 20  R2 persona = 0.9359  R2 hogar = 0.4629 
+2026-10-23 21:25:19 - Ingreso predicho: hogar = FALSE depth = 6 mcw = 100  R2 persona = 0.9345  R2 hogar = 0.4591 
+2026-10-23 21:25:20 - Ingreso predicho: hogar = FALSE depth = 8 mcw = 20  R2 persona = 0.9360  R2 hogar = 0.4712 
+2026-10-23 21:25:21 - Ingreso predicho: hogar = FALSE depth = 8 mcw = 100  R2 persona = 0.9348  R2 hogar = 0.4646 
+2026-10-23 21:25:23 - Ingreso predicho: hogar = FALSE depth = 10 mcw = 20  R2 persona = 0.9359  R2 hogar = 0.4750 
+2026-10-23 21:25:24 - Ingreso predicho: hogar = FALSE depth = 10 mcw = 100  R2 persona = 0.9349  R2 hogar = 0.4660 
+2026-10-23 21:25:26 - Ingreso predicho: hogar = TRUE depth = 6 mcw = 20  R2 persona = 0.9366  R2 hogar = 0.4933 
+2026-10-23 21:25:27 - Ingreso predicho: hogar = TRUE depth = 6 mcw = 100  R2 persona = 0.9354  R2 hogar = 0.4755 
+2026-10-23 21:25:28 - Ingreso predicho: hogar = TRUE depth = 8 mcw = 20  R2 persona = 0.9369  R2 hogar = 0.4982 
+2026-10-23 21:25:30 - Ingreso predicho: hogar = TRUE depth = 8 mcw = 100  R2 persona = 0.9357  R2 hogar = 0.4809 
+2026-10-23 21:25:31 - Ingreso predicho: hogar = TRUE depth = 10 mcw = 20  R2 persona = 0.9366  R2 hogar = 0.5007 
+2026-10-23 21:25:33 - Ingreso predicho: hogar = TRUE depth = 10 mcw = 100  R2 persona = 0.9357  R2 hogar = 0.4830 
+2026-10-23 21:25:33 - Ingreso predicho V4t : 26 tareas en 4 procesos 
+2026-10-23 21:25:38 - Ingreso predicho V4t listo 
+2026-10-23 21:25:38 - Ingreso predicho V4h : 26 tareas en 4 procesos 
+2026-10-23 21:25:45 - Ingreso predicho V4h listo 
+2026-10-23 21:25:45 - Ingreso predicho V4c : 26 tareas en 4 procesos 
+2026-10-23 21:25:53 - Ingreso predicho V4c listo 
+2026-10-23 21:25:53 - Indigencia PI : 26 tareas en 4 procesos 
+2026-10-23 21:25:56 - Indigencia PI listo 
+2026-10-23 21:25:56 - Índices supervisados IS : 26 tareas en 4 procesos 
+2026-10-23 21:25:58 - Índices supervisados IS listo 
+2026-10-23 21:25:58 - R² fuera de muestra del ingreso por persona (log1p Ingtot): 0.9381 
+2026-10-23 21:25:58 - R² del ingreso predicho (validación): 
+  version r2_persona r2_hogar
+1      V4     0.9381   0.4736
+2     V4t     0.9359   0.4750
+3     V4h     0.9366   0.5007
+4     V4c     0.9352   0.4837
+2026-10-23 21:25:58 - Mejor conjunto de variables: H7_stacking_P - F1 = 0.7513 
+2026-10-23 21:25:58 - Mejor clasificador (5.1-5.4): H7_stacking_P - F1 = 0.7513 
+2026-10-23 21:25:58 - Mejor clasificador: G_eta003_depth6_col08 - F1 = 0.7545 
+2026-10-23 21:25:58 - Modelo por persona (P): F1 = 0.6878  umbral = 0.36 
+2026-10-23 21:25:59 - Combinación G_eta003_depth6_col08 + R_mejor: w = 0.9  umbral = 0.37  F1 = 0.7559 
+2026-10-23 21:26:00 - Combinación de 3 (clasificador 0.9, regresión 0.1, persona -0.0): umbral = 0.37  F1 = 0.7559 
+2026-10-23 21:26:02 - Umbral honesto y por zona: 
+                      modelo  f1_cv f1_honesto f1_zona_honesto
+1              H0 (base 01b) 0.7135     0.7111          0.7137
+2      G_eta003_depth6_col08 0.7545     0.7526          0.7518
+3                    R_mejor 0.7473     0.7434          0.7439
+4                persona (P) 0.6878     0.6831          0.6833
+5 combinación de 2 (w = 0.9) 0.7559     0.7559          0.7538
+6           combinación de 3 0.7559     0.7559          0.7538
+2026-10-23 21:26:02 - Eliminación de variables poco importantes: 
+                  prueba variables     f1 f1_honesto umbral
+1  G_eta003_depth6_col08       130 0.7545     0.7526   0.37
+2   E_ganancia999_97vars        97 0.7545     0.7540   0.40
+3   E_ganancia995_81vars        81 0.7534     0.7529   0.43
+4    E_ganancia99_71vars        71 0.7538     0.7538   0.42
+5         E_top75_75vars        75 0.7554     0.7554   0.39
+6         E_top60_60vars        60 0.7542     0.7533   0.38
+7         E_top50_50vars        50 0.7549     0.7529   0.38
+8         E_top40_40vars        40 0.7514     0.7488   0.34
+9         E_top20_20vars        20 0.7504     0.7489   0.39
+10        E_top10_10vars        10 0.7465     0.7439   0.37
+11          E_top5_5vars         5 0.7413     0.7398   0.38
+2026-10-23 21:26:03 - Afinamiento con pocas variables (mejor de cada una): 
+                      prueba variables max_depth min_child_weight colsample
+1  F_top5_depth8_mcw50_col10         5         8               50       1.0
+2 F_top10_depth8_mcw10_col08        10         8               10       0.8
+3 F_top20_depth3_mcw50_col10        20         3               50       1.0
+      f1 umbral  iter f1_honesto
+1 0.7429   0.37 215.4     0.7429
+2 0.7485   0.37 170.6     0.7474
+3 0.7514   0.38 557.2     0.7506
+2026-10-23 21:26:06 - G_eta003_depth6_col08_V4t    F1 = 0.7520  umbral = 0.41  AUC = 0.9483  iter = 396  (0 min) 
+2026-10-23 21:26:09 - G_eta003_depth6_col08_V4h    F1 = 0.7552  umbral = 0.41  AUC = 0.9482  iter = 360  (0 min) 
+2026-10-23 21:26:13 - G_eta003_depth6_col08_V4c    F1 = 0.7524  umbral = 0.41  AUC = 0.9476  iter = 336  (0 min) 
+2026-10-23 21:26:16 - G_eta003_depth6_col08_V4_mas_V4h F1 = 0.7553  umbral = 0.38  AUC = 0.9485  iter = 366  (0 min) 
+2026-10-23 21:26:19 - G_eta003_depth6_col08_PI     F1 = 0.7525  umbral = 0.38  AUC = 0.9479  iter = 356  (0 min) 
+2026-10-23 21:26:23 - G_eta003_depth6_col08_I      F1 = 0.7527  umbral = 0.37  AUC = 0.9481  iter = 393  (0 min) 
+2026-10-23 21:26:27 - G_eta003_depth6_col08_IS     F1 = 0.7544  umbral = 0.37  AUC = 0.9480  iter = 416  (0 min) 
+2026-10-23 21:26:30 - G_eta003_depth6_col08_I_IS   F1 = 0.7528  umbral = 0.37  AUC = 0.9477  iter = 388  (0 min) 
+2026-10-23 21:26:32 - F_top20_depth3_mcw50_col10_I F1 = 0.7488  umbral = 0.38  AUC = 0.9464  iter = 532  (0 min) 
+2026-10-23 21:26:34 - F_top20_depth3_mcw50_col10_IS F1 = 0.7506  umbral = 0.36  AUC = 0.9466  iter = 520  (0 min) 
+2026-10-23 21:26:38 - G_eta003_depth6_col08_todo   F1 = 0.7582  umbral = 0.39  AUC = 0.9484  iter = 383  (0 min) 
+2026-10-23 21:26:38 - Ingreso mejorado, indigencia e índices: 
+                             prueba variables     f1 f1_honesto umbral
+1             G_eta003_depth6_col08       130 0.7545     0.7526   0.37
+2        F_top20_depth3_mcw50_col10        20 0.7514     0.7506   0.38
+3         G_eta003_depth6_col08_V4t       130 0.7520     0.7495   0.41
+4         G_eta003_depth6_col08_V4h       130 0.7552     0.7538   0.41
+5         G_eta003_depth6_col08_V4c       130 0.7524     0.7497   0.41
+6  G_eta003_depth6_col08_V4_mas_V4h       135 0.7553     0.7526   0.38
+7          G_eta003_depth6_col08_PI       134 0.7525     0.7501   0.38
+8           G_eta003_depth6_col08_I       135 0.7527     0.7506   0.37
+9          G_eta003_depth6_col08_IS       135 0.7544     0.7536   0.37
+10       G_eta003_depth6_col08_I_IS       140 0.7528     0.7507   0.37
+11     F_top20_depth3_mcw50_col10_I        25 0.7488     0.7463   0.38
+12    F_top20_depth3_mcw50_col10_IS        25 0.7506     0.7506   0.36
+13       G_eta003_depth6_col08_todo       149 0.7582     0.7582   0.39
+   ganancia_nuevas
+1               NA
+2               NA
+3           58.412
+4           62.264
+5           60.497
+6           57.110
+7            2.779
+8            1.919
+9            2.368
+10           3.822
+11           2.681
+12           3.407
+13          55.291
+                              prueba     f1 umbral    auc     r2  iter
+1         G_eta003_depth6_col08_todo 0.7582   0.39 0.9484     NA 383.4
+2                     E_top75_75vars 0.7554   0.39 0.9484     NA 394.6
+3   G_eta003_depth6_col08_V4_mas_V4h 0.7553   0.38 0.9485     NA 365.6
+4          G_eta003_depth6_col08_V4h 0.7552   0.41 0.9482     NA 360.4
+5                     E_top50_50vars 0.7549   0.38 0.9481     NA 375.8
+6               E_ganancia999_97vars 0.7545   0.40 0.9482     NA 397.8
+7              G_eta003_depth6_col08 0.7545   0.37 0.9483     NA 385.4
+8           G_eta003_depth6_col08_IS 0.7544   0.37 0.9480     NA 416.0
+9              G_eta003_depth4_col08 0.7543   0.42 0.9482     NA 538.8
+10                    E_top60_60vars 0.7542   0.38 0.9483     NA 401.2
+11             G_eta002_depth6_col06 0.7541   0.36 0.9480     NA 613.6
+12             G_eta003_depth4_col06 0.7540   0.36 0.9480     NA 486.2
+13               E_ganancia99_71vars 0.7538   0.42 0.9483     NA 379.6
+14              E_ganancia995_81vars 0.7534   0.43 0.9483     NA 412.0
+15             G_eta003_depth6_col06 0.7530   0.40 0.9479     NA 384.0
+16        G_eta003_depth6_col08_I_IS 0.7528   0.37 0.9477     NA 388.2
+17           G_eta003_depth6_col08_I 0.7527   0.37 0.9481     NA 392.6
+18             G_eta002_depth4_col06 0.7526   0.36 0.9482     NA 870.6
+19          G_eta003_depth6_col08_PI 0.7525   0.38 0.9479     NA 356.4
+20         G_eta003_depth6_col08_V4c 0.7524   0.41 0.9476     NA 336.2
+21         G_eta003_depth6_col08_V4t 0.7520   0.41 0.9483     NA 396.4
+22             G_eta002_depth6_col08 0.7518   0.42 0.9481     NA 556.4
+23             G_eta002_depth4_col08 0.7516   0.39 0.9480     NA 782.2
+24                    E_top40_40vars 0.7514   0.34 0.9480     NA 411.2
+25        F_top20_depth3_mcw50_col10 0.7514   0.38 0.9464     NA 557.2
+26        F_top20_depth8_mcw50_col08 0.7513   0.37 0.9470     NA 291.4
+27                     H7_stacking_P 0.7513   0.34 0.9455     NA  59.0
+28              A_depth6_mcw50_col08 0.7513   0.34 0.9455     NA  59.0
+29        F_top20_depth6_mcw50_col10 0.7511   0.34 0.9468     NA 311.0
+30        F_top20_depth3_mcw50_col08 0.7511   0.36 0.9465     NA 585.2
+31        F_top20_depth8_mcw50_col10 0.7510   0.40 0.9468     NA 303.8
+32              A_depth8_mcw10_col06 0.7510   0.38 0.9467     NA  59.0
+33     F_top20_depth3_mcw50_col10_IS 0.7506   0.36 0.9466     NA 519.8
+34                    E_top20_20vars 0.7504   0.39 0.9469     NA 328.4
+35        F_top20_depth6_mcw50_col08 0.7504   0.39 0.9469     NA 328.4
+36        F_top20_depth3_mcw10_col10 0.7504   0.34 0.9466     NA 493.8
+37              A_depth8_mcw50_col08 0.7504   0.36 0.9456     NA  59.0
+38              A_depth6_mcw10_col08 0.7503   0.35 0.9467     NA  59.0
+39        F_top20_depth4_mcw50_col10 0.7503   0.40 0.9467     NA 420.6
+40                       B_sin_ricos 0.7499   0.38 0.9454     NA  59.0
+41              A_depth4_mcw50_col08 0.7499   0.38 0.9448     NA  59.0
+42              A_depth6_mcw10_col06 0.7499   0.35 0.9464     NA  59.0
+43              A_depth8_mcw10_col08 0.7497   0.36 0.9468     NA  59.0
+44                           S_top50 0.7495   0.38 0.9452     NA  59.0
+45              A_depth6_mcw50_col06 0.7493   0.37 0.9450     NA  59.0
+46                           S_top75 0.7492   0.35 0.9454     NA  59.0
+47        F_top20_depth4_mcw50_col08 0.7491   0.33 0.9468     NA 415.8
+48              A_depth8_mcw50_col06 0.7490   0.37 0.9451     NA  59.0
+49              A_depth4_mcw10_col06 0.7490   0.38 0.9452     NA  59.0
+50                           S_top25 0.7488   0.36 0.9450     NA  59.0
+51                         H6_N1N2N3 0.7488   0.31 0.9445     NA  59.0
+52        F_top20_depth6_mcw10_col08 0.7488   0.38 0.9468     NA 240.2
+53      F_top20_depth3_mcw50_col10_I 0.7488   0.38 0.9464     NA 531.6
+54        F_top20_depth4_mcw10_col08 0.7487   0.33 0.9468     NA 379.2
+55                       B_aumentada 0.7485   0.71 0.9462     NA  59.0
+56        F_top10_depth8_mcw10_col08 0.7485   0.37 0.9448     NA 170.6
+57        F_top20_depth4_mcw10_col10 0.7484   0.37 0.9468     NA 374.6
+58                   H3_N1_productos 0.7484   0.34 0.9441     NA  59.0
+59        F_top10_depth3_mcw50_col08 0.7482   0.38 0.9453     NA 434.6
+60        F_top20_depth8_mcw10_col08 0.7481   0.37 0.9464     NA 197.4
+61        F_top20_depth6_mcw10_col10 0.7480   0.37 0.9466     NA 224.0
+62        F_top20_depth3_mcw10_col08 0.7480   0.34 0.9465     NA 473.6
+63        F_top10_depth3_mcw50_col10 0.7477   0.41 0.9451     NA 397.6
+64              A_depth4_mcw10_col08 0.7477   0.37 0.9456     NA  59.0
+65        F_top10_depth4_mcw50_col10 0.7475   0.35 0.9451     NA 295.0
+66                           R_mejor 0.7473   0.34 0.9407 0.6031  58.4
+67        F_top10_depth8_mcw10_col10 0.7473   0.39 0.9446     NA 163.6
+68        F_top20_depth8_mcw10_col10 0.7471   0.41 0.9462     NA 188.8
+69        F_top10_depth8_mcw50_col10 0.7471   0.32 0.9451     NA 235.6
+70        F_top10_depth4_mcw50_col08 0.7470   0.35 0.9452     NA 299.0
+71        F_top10_depth6_mcw10_col10 0.7470   0.38 0.9451     NA 195.2
+72                     H5_N3_dominio 0.7469   0.30 0.9445     NA  59.0
+73              A_depth4_mcw50_col06 0.7469   0.36 0.9444     NA  59.0
+74        F_top10_depth6_mcw50_col10 0.7468   0.35 0.9451     NA 250.0
+75        F_top10_depth4_mcw10_col08 0.7468   0.37 0.9453     NA 251.0
+76        F_top10_depth6_mcw10_col08 0.7468   0.39 0.9452     NA 206.4
+77        F_top10_depth4_mcw10_col10 0.7466   0.38 0.9453     NA 251.0
+78                     H4_N2_razones 0.7466   0.34 0.9440     NA  59.0
+79        F_top10_depth3_mcw10_col08 0.7465   0.41 0.9453     NA 394.8
+80                    E_top10_10vars 0.7465   0.37 0.9452     NA 266.8
+81        F_top10_depth6_mcw50_col08 0.7465   0.37 0.9452     NA 266.8
+82        F_top10_depth3_mcw10_col10 0.7464   0.41 0.9452     NA 398.0
+83        F_top10_depth8_mcw50_col08 0.7461   0.36 0.9451     NA 255.6
+84                          H1_V1aV4 0.7461   0.31 0.9438     NA  59.0
+85                              R_H2 0.7456   0.33 0.9392 0.6031  58.6
+86                       H2_nuestras 0.7453   0.34 0.9438     NA  59.0
+87         F_top5_depth8_mcw50_col10 0.7429   0.37 0.9415     NA 215.4
+88         F_top5_depth4_mcw10_col10 0.7424   0.36 0.9416     NA 217.6
+89         F_top5_depth3_mcw50_col10 0.7423   0.37 0.9416     NA 318.4
+90         F_top5_depth3_mcw50_col08 0.7422   0.36 0.9414     NA 243.0
+91         F_top5_depth6_mcw50_col10 0.7419   0.37 0.9415     NA 246.4
+92         F_top5_depth4_mcw50_col10 0.7415   0.36 0.9414     NA 244.2
+93                      E_top5_5vars 0.7413   0.38 0.9415     NA 222.6
+94         F_top5_depth6_mcw50_col08 0.7413   0.38 0.9415     NA 222.6
+95         F_top5_depth4_mcw50_col08 0.7412   0.35 0.9413     NA 252.2
+96         F_top5_depth6_mcw10_col10 0.7411   0.37 0.9408     NA 174.4
+97         F_top5_depth6_mcw10_col08 0.7410   0.37 0.9407     NA 196.2
+98         F_top5_depth4_mcw10_col08 0.7409   0.38 0.9414     NA 234.8
+99         F_top5_depth3_mcw10_col10 0.7407   0.36 0.9414     NA 255.6
+100        F_top5_depth8_mcw50_col08 0.7406   0.38 0.9415     NA 210.2
+101        F_top5_depth3_mcw10_col08 0.7399   0.36 0.9414     NA 286.4
+102        F_top5_depth8_mcw10_col10 0.7387   0.36 0.9401     NA 160.6
+103        F_top5_depth8_mcw10_col08 0.7385   0.39 0.9401     NA 150.0
+104                       H0_base01b 0.7135   0.31 0.9320     NA  59.0
+    variables  minutos
+1         149 0.065606
+2          75 0.038733
+3         135 0.055075
+4         130 0.050396
+5          50 0.028288
+6          97 0.047759
+7         130 0.061958
+8         135 0.060943
+9         130 0.091284
+10         60 0.032464
+11        130 0.073901
+12        130 0.069828
+13         71 0.046633
+14         81 0.043806
+15        130 0.063027
+16        140 0.060654
+17        135 0.058274
+18        130 0.081394
+19        134 0.052481
+20        130 0.062961
+21        130 0.054714
+22        130 0.080953
+23        130 0.066990
+24         40 0.035670
+25         20 0.021184
+26         20 0.029652
+27        130 0.015705
+28        130 0.010265
+29         20 0.020962
+30         20 0.021077
+31         20 0.017120
+32        130 0.012457
+33         25 0.028416
+34         20 0.019534
+35         20 0.020130
+36         20 0.018328
+37        130 0.024280
+38        130 0.010336
+39         20 0.016004
+40        130 0.008166
+41        130 0.008242
+42        130 0.010514
+43        130 0.014363
+44         50 0.005714
+45        130 0.008487
+46         75 0.007951
+47         20 0.016233
+48        130 0.035240
+49        130 0.007960
+50         25 0.004242
+51        126 0.017063
+52         20 0.016856
+53         25 0.028941
+54         20 0.018240
+55        130 0.009758
+56         10 0.020592
+57         20 0.018362
+58        116 0.007808
+59         10 0.015344
+60         20 0.023724
+61         20 0.016627
+62         20 0.018812
+63         10 0.016407
+64        130 0.008208
+65         10 0.012692
+66        130 0.011102
+67         10 0.020780
+68         20 0.028073
+69         10 0.011740
+70         10 0.013964
+71         10 0.014675
+72        115 0.007640
+73        130 0.007550
+74         10 0.021048
+75         10 0.011801
+76         10 0.012846
+77         10 0.011702
+78        115 0.007691
+79         10 0.013249
+80         10 0.012642
+81         10 0.021040
+82         10 0.015270
+83         10 0.025488
+84        107 0.007303
+85        110 0.009508
+86        110 0.007412
+87          5 0.024598
+88          5 0.007815
+89          5 0.011101
+90          5 0.007649
+91          5 0.013043
+92          5 0.007496
+93          5 0.007781
+94          5 0.009832
+95          5 0.007975
+96          5 0.008284
+97          5 0.007640
+98          5 0.008228
+99          5 0.007657
+100         5 0.019005
+101         5 0.008557
+102         5 0.016717
+103         5 0.014564
+104        94 0.005793
+2026-10-23 21:26:40 - Submission: XGBH_nativo_G_eta003_depth6_col08_threshold_037.csv - % pobres en test: 22.9 
+2026-10-23 21:26:40 - Submission: XGBH_nativo_E_top75_75vars_threshold_039.csv - % pobres en test: 22.2 
+2026-10-23 21:26:43 - Submission: XGBH_nativo_G_eta003_depth6_col08_todo_threshold_039.csv - % pobres en test: 22.4 
+2026-10-23 21:26:43 - Combinación G_eta003_depth6_col08_todo + R_mejor: w = 0.9  umbral = 0.38  F1 = 0.7587 
+2026-10-23 21:26:43 - Submission: XGBH_nativo_comb_G_eta003_depth6_col08_todo_R_mejor_w09_threshold_038.csv - % pobres en test: 22.8 
+2026-10-23 21:26:44 - Submission: XGBH_nativo_comb_G_eta003_depth6_col08_R_mejor_w09_threshold_037.csv - % pobres en test: 22.9 
+2026-10-23 21:26:44 - Comparación de codificaciones (F1): 
+          prueba codigos onehot nativo
+1      mejor A/G  0.7530 0.7531 0.7582
+2       H1_V1aV4  0.7444 0.7457 0.7461
+3  H7_stacking_P  0.7425 0.7483 0.7513
+4     H0_base01b  0.7162 0.7105 0.7135
+5 E_top75_75vars      NA 0.7522 0.7554
+6 E_top10_10vars      NA 0.7474 0.7465
+7 E_top20_20vars      NA 0.7469 0.7504
+8   E_top5_5vars      NA 0.7411 0.7413
+2026-10-23 21:26:44 - === TERMINADO 

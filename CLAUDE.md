@@ -22,6 +22,7 @@ Rscript script/02_data_analysis.r    # tabla en output/tables/, figuras en outpu
 Rscript script/03_naive_bayes.r      # validación cruzada, grid search y submission en output/submissions/
 Rscript script/04_carts.r            # CART con caret: cp y umbral por validación cruzada, submission
 Rscript script/05_xgboost.r          # XGBoost con caret (modelo propio xgb_caret): hiperparámetros y umbral, submission
+Rscript script/05b_xgboost_hogar.r    # XGBoost a nivel hogar (5 folds de main). CODIFICACION=nativo (por defecto) | onehot | codigos; NORMALIZAR=1 estandariza la base. Cada combinación guarda en output/pruebas/xgb_hogar[_<cod>][_normalizada]/ y retoma
 Rscript -e 'rmarkdown::render("documentation/guia_variables.Rmd")'   # compila la guía y verifica que esté al día
 cd latex && latexmk -pdf resultados.tex   # documento de resultados
 ```
