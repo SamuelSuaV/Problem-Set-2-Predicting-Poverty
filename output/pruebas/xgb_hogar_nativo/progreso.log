@@ -346,3 +346,11 @@
 2026-10-24 05:37:17 - ruido_s789_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05 F1 = 0.7735  umbral = 0.40  AUC = 0.9588  iter = 949  (2 min) 
 2026-10-24 05:37:28 - F1 del mejor modelo con otras particiones: 
 2026-10-24 05:37:28 - === TERMINADO 
+2026-10-24 10:26:51 - R² fuera de muestra del ingreso por persona (log1p Ingtot): 0.9421 
+2026-10-24 10:26:52 - R² del ingreso predicho (validación): 
+2026-10-24 10:26:52 - AUC por hogar del clasificador por persona (validación): 
+2026-10-24 10:26:52 - Mejor conjunto de variables: H7_stacking_P - F1 = 0.76 
+2026-10-24 10:26:52 - Mejor clasificador (5.1-5.4): A_depth6_mcw10_col08 - F1 = 0.7609 
+2026-10-24 10:26:52 - Mejor clasificador: G_eta002_depth6_col08 - F1 = 0.7612 
+2026-10-24 10:26:53 - Modelo por persona (P): F1 = 0.7110  umbral = 0.31 
+2026-10-24 10:26:55 - Combinación G_eta002_depth6_col08 + R_mejor: w = 0.9  umbral = 0.35  F1 = 0.7614 

@@ -885,10 +885,11 @@ prob_test <- function(res) {
   p
 }
 
-# Submission (una fila por hogar) con formato Kaggle.
-guardar_submission <- function(prob, umbral, nombre) {
+# Submission (una fila por hogar) con formato Kaggle. `prefijo`: XGBH para
+# XGBoost (y sus combinaciones), RFH para el random forest solo.
+guardar_submission <- function(prob, umbral, nombre, prefijo = "XGBH") {
   sin_punto <- function(v) gsub(".", "", format(round(v, 2), scientific = FALSE), fixed = TRUE)
-  archivo <- paste0("XGBH_", if (!completo) paste0(codificacion, "_"), nombre, "_threshold_", sin_punto(umbral), ".csv")
+  archivo <- paste0(prefijo, "_", if (!completo) paste0(codificacion, "_"), nombre, "_threshold_", sin_punto(umbral), ".csv")
   dir.create(here("output", "submissions"), showWarnings = FALSE)
   if (!prueba) write_csv(tibble(id = test$id, pobre = as.integer(prob > umbral)), here("output", "submissions", archivo))
   marca("Submission:", archivo, "- % pobres en test:", round(100 * mean(prob > umbral), 1))
@@ -1337,6 +1338,10 @@ if (mejor_nuevo$f1 > max(mejor_e$f1, mejor_clf$f1)) {
     guardar_submission(comb_nuevo$w * p_nuevo + (1 - comb_nuevo$w) * prob_test(reg_comb), comb_nuevo$umbral,
                        sprintf("comb_%s_%s_w%02d", mejor_nuevo$nombre, reg_comb$nombre, round(10 * comb_nuevo$w)))
 }
+# Para diversificar las submissions (F1 parecido, predicciones distintas): el
+# mejor modelo con solo sus 75 variables de más ganancia (5.23).
+top75 <- S2[[2]]
+guardar_submission(prob_test(top75), top75$umbral, top75$nombre)
 if (max(comb2$f1, comb3$f1) > mejor_clf$f1) {
   p_reg <- prob_test(mejor_reg)
   if (comb3$f1 > comb2$f1) {
@@ -1535,16 +1540,19 @@ bosque <- tibble(modelo = c(mejor_nuevo$nombre, map_chr(RF, ~ sprintf("RF mtry %
 saveRDS(bosque, file.path(dir_out, "bosque.rds"))
 marca("Random forest y combinación:"); print(as.data.frame(bosque), digits = 4)
 
-# Submission de la mejor combinación con el bosque, si mejora el F1 honesto
-# del XGBoost solo. El bosque final se estima con todo train.
+# El bosque final se estima con todo train. Submission del bosque solo (para
+# diversificar: es el modelo que más difiere de XGBoost) y de la mejor
+# combinación con el bosque, si mejora el F1 honesto del XGBoost solo.
+X_ent <- armar(hog_tr, bind_rows(map(1:k, ~ tabla_tarea(paste0("val_", .x)))), mejor_rf$vars)
+X_te  <- armar(hog_te, tabla_tarea("test"), mejor_rf$vars)
+rf <- ranger(x = as.data.frame(X_ent), y = factor(y), probability = TRUE, num.trees = arboles_rf,
+             mtry = mejor_rf$mtry, min.node.size = mejor_rf$min_nodo, respect.unordered.factors = "order",
+             num.threads = nucleos, seed = 123, verbose = FALSE)
+p_rf_te <- predict(rf, as.data.frame(X_te), num.threads = nucleos)$predictions[, "1"]
+rm(rf, X_ent, X_te); invisible(gc())
+guardar_submission(p_rf_te, mejor_rf$umbral, sprintf("mtry%d_nodo%d", mejor_rf$mtry, mejor_rf$min_nodo), prefijo = "RFH")
 f1h_xgb <- umbral_honesto(mejor_nuevo$prob)
 if (max(tail(bosque$f1_honesto, 2)) > f1h_xgb) {
-  X_ent <- armar(hog_tr, bind_rows(map(1:k, ~ tabla_tarea(paste0("val_", .x)))), mejor_rf$vars)
-  X_te  <- armar(hog_te, tabla_tarea("test"), mejor_rf$vars)
-  rf <- ranger(x = as.data.frame(X_ent), y = factor(y), probability = TRUE, num.trees = arboles_rf,
-               mtry = mejor_rf$mtry, min.node.size = mejor_rf$min_nodo, respect.unordered.factors = "order",
-               num.threads = nucleos, seed = 123, verbose = FALSE)
-  p_rf_te  <- predict(rf, as.data.frame(X_te), num.threads = nucleos)$predictions[, "1"]
   p_xgb_te <- prob_test(mejor_nuevo)
   if (tail(bosque$f1_honesto, 1) > tail(bosque$f1_honesto, 2)[1]) {
     guardar_submission(comb_rf3$w1 * p_xgb_te + comb_rf3$w2 * p_rf_te + (1 - comb_rf3$w1 - comb_rf3$w2) * prob_test(mejor_reg),
