@@ -1,0 +1,19 @@
+\begin{table}
+
+\caption{\label{tab:boosting_variables}LightGBM con variables nuevas (hiperparámetros fijos de 07, mismos 5 folds)}
+\centering
+\begin{tabular}[t]{lp{8cm}rrrr}
+\toprule
+Experimento & Variables agregadas & Iteraciones & Umbral & F1 (CV) & Diferencia vs. E0\\
+\midrule
+E0 & Variables de train\_hogar (base) & 1157 & 0.35 & 0.7530 & 0.0000\\
+E1 & V1: fex\_c, fex\_dpto & 1318 & 0.38 & 0.7536 & 0.0007\\
+E2 & V2: ocup\_max\_educ, ocup\_max\_tamano, ocup\_posicion\_educ, ocup\_max\_horas & 1169 & 0.35 & 0.7533 & 0.0004\\
+E3 & V3: te\_oficio\_media, te\_oficio\_min, te\_oficio\_max & 1177 & 0.38 & 0.7534 & 0.0004\\
+E4 & V4: ing\_pred\_total, log\_ing\_pred\_pc\_lp, max\_ing\_pred\_lp, prop\_ing\_jefe & 908 & 0.36 & 0.7594 & 0.0065\\
+\addlinespace
+E5 & V1: fex\_c, fex\_dpto; V2: ocup\_max\_educ, ocup\_max\_tamano, ocup\_posicion\_educ, ocup\_max\_horas; V3: te\_oficio\_media, te\_oficio\_min, te\_oficio\_max & 1120 & 0.35 & 0.7532 & 0.0003\\
+E6 & V1: fex\_c, fex\_dpto; V2: ocup\_max\_educ, ocup\_max\_tamano, ocup\_posicion\_educ, ocup\_max\_horas; V3: te\_oficio\_media, te\_oficio\_min, te\_oficio\_max; V4: ing\_pred\_total, log\_ing\_pred\_pc\_lp, max\_ing\_pred\_lp, prop\_ing\_jefe & 893 & 0.37 & 0.7596 & 0.0067\\
+\bottomrule
+\end{tabular}
+\end{table}
