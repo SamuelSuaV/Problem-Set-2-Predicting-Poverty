@@ -11,7 +11,7 @@
 # Estructura:
 # 1. Cargar librerías
 # 2. Configuración: bases, conjuntos de variables y grillas
-# 3. Funciones
+# 3. FuncionesS
 #    3.1 Datos: cargar una base y pasar a matriz
 #    3.2 Evaluación por hogar
 #    3.3 XGBoost para caret
@@ -39,6 +39,8 @@ p_load(
   caret,      # Validación cruzada y fine tuning.
   doParallel  # Folds de la validación cruzada en paralelo.
 )
+# Variables y funciones comunes (categoricas, x1, prob_hogar, calcular_f1).
+source(here("script", "00_master_file.r"))
 
 ################################################################################
 
@@ -59,21 +61,14 @@ bases <- c("train_clean", "train_clean_augmented", "train_clean_sin_ricos")
 
 # Categóricas con códigos DANE: pasan a dummies (una por nivel). Si quedan
 # numéricas, los árboles las cortan como si los códigos estuvieran ordenados.
-# El texto (dominio, depto) también pasa a dummies.
-categoricas <- c("max_educ", "regimen_salud", "actividad_sem_pasada",
-                 "cotiza_pension", "tamano_empresa", "oficio",
-                 "posicion_ocupacional", "tenencia_vivienda",
-                 "parentesco_jefe_hogar")
+# El texto (dominio, depto) también pasa a dummies. Las de 00_master_file.r
+# más el parentesco con el jefe.
+categoricas <- c(categoricas, "parentesco_jefe_hogar")
 
 # Conjuntos de variables (vectores de nombres). Para probar uno nuevo, se
 # define aquí y se agrega una línea en la sección 4.
 
-# Mejor conjunto de naive bayes y CART (03 y 04).
-x1 <- c("anos", "anos_educ_imp", "mujer", "ocupado", "afiliado_salud",
-        "regimen_salud", "actividad_sem_pasada", "log_meses_empresa",
-        "tamano_empresa", "posicion_ocupacional", "horas_trabajo_semana",
-        "arriendo_pc_sobre_lp", "prop_ocupados_hogar", "tenencia_vivienda",
-        "recibio_arriendos_pensiones", "ayudas_instituciones")
+# x1: mejor conjunto de naive bayes y CART (03 y 04), en 00_master_file.r.
 
 # + variables más importantes del CART con todas las variables
 # (output/pruebas/todas/) que no están en x1.
@@ -198,19 +193,7 @@ a_matriz <- function(df, variables, niveles = NULL) {
 
 # pobre es del hogar y la submission es una fila por hogar. Como en 03 y 04,
 # la probabilidad del hogar es el promedio de los log odds de sus miembros.
-prob_hogar <- function(p, id) {
-  p <- pmin(pmax(p, 1e-6), 1 - 1e-6)
-  tibble(id = id, prob = p) |>
-    summarize(prob = plogis(mean(qlogis(prob))), .by = id)
-}
-
-# F1 a partir de predicciones y valores reales (0/1 o lógicos).
-calcular_f1 <- function(pred, real) {
-  vp        <- sum(pred == 1 & real == 1)
-  precision <- vp / sum(pred == 1)
-  recall    <- vp / sum(real == 1)
-  2 * precision * recall / (precision + recall)
-}
+# prob_hogar() y calcular_f1() están en 00_master_file.r.
 
 # summaryFunction de caret: F1 por hogar de un fold de validación, uno por
 # umbral. rowIndex es la fila en la base, con la que se recupera el id.

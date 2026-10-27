@@ -18,14 +18,16 @@
 #    3.2 Variables que no dependen de los folds (V1, V2, nuestras, N1, N3,
 #        índices I)
 #    3.3 Variables que dependen de los folds (V3, V4, P y P2), CV anidada
-#    3.4 Ingreso predicho mejorado (V4t, V4h, V4c, V4e, V4f), clasificador por
-#        persona afinado (Pt, Pe) y por cortes de ingreso (C080, C125),
+#    3.4 Ingreso predicho mejorado (V4t, V4h, V4c, V4e, V4f, V4w, V4x), clasificador por
+#        persona afinado (Pt, Pe, Pa) y por cortes de ingreso (C080, C125),
 #        indigencia (PI) e índices supervisados (IS), CV anidada
 # 4. Funciones de validación cruzada, combinación y predicción
 # 5. Pruebas (5.15-5.18: ingreso mejorado, indigencia, índices, persona
 #    afinado, preguntas no usadas y cortes; 5.19-5.20: pesos cerca de la
 #    línea y regresión; 5.21-5.23: ingreso con preguntas no usadas afinado,
-#    hiperparámetros y selección de variables del modelo nuevo)
+#    hiperparámetros y selección de variables del modelo nuevo; 5.24:
+#    arriendo imputado e ingreso Tweedie; 5.25: Tweedie afinado y regresión
+#    con el mejor modelo)
 # 6. Modelo final y submissions
 # 7. Naive bayes: con la base por hogar y combinado con el mejor modelo
 # 8. Comparación de codificaciones de las categóricas
@@ -33,6 +35,10 @@
 # 10. Análisis de errores del mejor modelo
 # 11. Modelo especialista para los hogares dudosos
 # 12. Ruido: el mejor modelo con otras particiones en folds
+# 13. Combinación con el logit lasso de main
+# 14. Importancia por permutación del mejor modelo
+# 15. Importancia de extremo a extremo por concepto
+# 16. Importancia de extremo a extremo por variable de la persona
 
 ################################################################################
 
@@ -40,9 +46,13 @@
 #         generan con output/pruebas/hogar/01b_bases_hogar_main.r);
 #         data/train_clean.rds , data/test_clean.rds (01);
 #         data/train_personas.csv (solo Ingtot y sus componentes, objetivos del
-#         ingreso predicho).
+#         ingreso predicho); output/pruebas/logit/logit_oof.rds (logit de
+#         main, sección 13; se genera con
+#         output/pruebas/logit/06_logit_interacciones_main.r).
 # Output: output/pruebas/xgb_hogar/: resultado de cada prueba (.rds) y
-#         progreso.log; output/submissions/XGBH_<prueba>_..._threshold_<c>.csv .
+#         progreso.log (en 14, 15 y 16, importancia_permutacion.rds,
+#         importancia_conceptos.rds e importancia_variables_e2e.rds);
+#         output/submissions/XGBH_<prueba>_..._threshold_<c>.csv .
 #
 # Correr desde la raíz. Con PRUEBA=1 usa el 10% de los hogares y pocas
 # iteraciones, y guarda en output/pruebas/xgb_hogar_prueba/.
@@ -60,6 +70,8 @@ p_load(
   ranger,     # Random forest (sección 9).
   parallel    # Procesos en paralelo (fork).
 )
+# Funciones comunes (calcular_f1, evaluar_umbral).
+source(here("script", "00_master_file.r"))
 
 prueba <- Sys.getenv("PRUEBA") == "1"
 # Codificación de las categóricas (variable de entorno CODIFICACION):
@@ -232,7 +244,7 @@ cols <- list(
 # además, variables del hogar; _c: ingreso laboral y no laboral por separado;
 # _e: como _t, con las preguntas que no se usaban (x_pers_extra); _f: con
 # esas preguntas, afinado.
-for (s in c("t", "h", "c", "e", "f")) cols[[paste0("V4", s)]] <- paste0(c(cols$V4, "ing_pred_por_ocup"), "_", s)
+for (s in c("t", "h", "c", "e", "f", "w", "x")) cols[[paste0("V4", s)]] <- paste0(c(cols$V4, "ing_pred_por_ocup"), "_", s)
 # PI: probabilidad de ser indigente por persona, resumida por hogar (como P).
 cols$PI <- c("p_ind_media", "p_ind_max", "p_ind_min", "p_ind_jefe")
 # Pt, Pe: clasificador por persona afinado (Pe, con x_pers_extra). C080, C125:
@@ -241,6 +253,14 @@ cols$PI <- c("p_ind_media", "p_ind_max", "p_ind_min", "p_ind_jefe")
 resumen_p <- c("media", "max", "min", "jefe")
 cols$Pt <- paste0("pt_", resumen_p); cols$Pe <- paste0("pe_", resumen_p)
 cols$C080 <- paste0("pc080_", resumen_p); cols$C125 <- paste0("pc125_", resumen_p)
+# A: arriendo imputado (01) per cápita sobre la línea y, para cada ingreso
+# predicho, log((ingreso predicho + arriendo imputado) / personas / línea): la
+# fórmula del DANE (Ingpcug) con el ingreso de las personas predicho. Las
+# ing_arr_pc_lp* dependen del fold (se calculan en armar()). V4w: ingreso
+# predicho con objetivo Tweedie (3.4). Pa: clasificador por persona como Pe,
+# más el arriendo imputado del hogar.
+cols$A <- c("arr_imp_pc_lp", paste0("ing_arr_pc_lp", c("", "_t", "_e", "_f")))
+cols$Pa <- paste0("pa_", resumen_p)
 
 # Índices (I): resumen de varias variables débiles del mismo tema, que un
 # árbol tendría que sumar con muchos cortes. Signo: +1 si la variable sube con
@@ -272,6 +292,9 @@ hog <- bind_rows(train |> select(id, all_of(x_base)) |> mutate(base = "train"),
   left_join(bind_rows(v1(pers_tr), v1(pers_te)), by = "id") |>
   left_join(bind_rows(v2(pers_tr), v2(pers_te)), by = "id") |>
   left_join(bind_rows(nuestras(pers_tr), nuestras(pers_te)), by = "id") |>
+  left_join(bind_rows(distinct(pers_tr, id, arriendo_imputado), distinct(pers_te, id, arriendo_imputado)),
+            by = "id", relationship = "one-to-one") |>
+  mutate(arr_imp_pc_lp = arriendo_imputado / n_ug / exp(log_lp)) |>
   mutate(across(all_of(cols$V2), ~ coalesce(.x, 0)),
          # N1
          educ_adultos_x_ocup_pc = educ_max_adultos * ocup_pc,
@@ -361,11 +384,14 @@ x_pers_extra <- c("pago_especie_alimentos", "pago_especie_vivienda", "transporte
                   "primera_vez_busca_trabajo", "posicion_ultimo_trabajo",
                   "ingreso_trabajo_desocupado", "ingreso_trabajo_desocupado_2")
 cat_extra <- c("posicion_segundo_trabajo", "posicion_ultimo_trabajo")
+# Arriendo imputado del hogar (01) per cápita sobre la línea: solo en Pa.
+x_pers_imp <- "arr_imp_pc_lp"
 pers <- bind_rows(
   pers_tr |> left_join(tibble(id = train$id, fold = fold), by = "id") |> mutate(base = "train"),
   pers_te |> mutate(base = "test", fold = NA_integer_, pobre = NA_integer_, Indigente = NA_integer_,
                     Ingtot = NA_real_, ing_lab = NA_real_, ing_nolab = NA_real_))
-X_pers <- pers |> select(all_of(c(x_pers, x_pers_hog, x_pers_extra))) |>
+pers <- mutate(pers, arr_imp_pc_lp = arriendo_imputado / personas_unidad_gasto / linea_pobreza)
+X_pers <- pers |> select(all_of(c(x_pers, x_pers_hog, x_pers_extra, x_pers_imp))) |>
   mutate(across(all_of(c(cat_pers, "tenencia_vivienda", cat_extra)), ~ as.integer(factor(.x))))
 # Con códigos, matriz numérica; con onehot y nativo, data.frame con factores
 # (categóricas nativas de xgboost).
@@ -378,6 +404,7 @@ rm(pers_tr, pers_te); invisible(gc())
 col_v4 <- colnames(X_pers) %in% x_pers   # el ingreso predicho usa solo x_pers
 col_p  <- colnames(X_pers) %in% c(x_pers, x_pers_hog)   # P, P2 y PI
 col_extra <- colnames(X_pers) %in% x_pers_extra
+col_imp   <- colnames(X_pers) %in% x_pers_imp
 
 # Un modelo xgboost con parada temprana sobre el 10% de los hogares de
 # entrenamiento (como 07b).
@@ -408,38 +435,42 @@ resumir_prob <- function(pp, prefijo) {
     rename_with(~ paste0(prefijo, "_", .x), -id)
 }
 
-tarea_v34p <- function(tarea) {
-  i_ent  <- which(pers$base == "train" & pers$fold %in% tarea$entren)
-  i_pred <- if (is.null(tarea$pred)) which(pers$base == "test") else which(pers$base == "train" & pers$fold %in% tarea$pred)
-  # V3
+# Personas con las que se entrena una tarea y personas que predice.
+filas_ent  <- function(tarea) which(pers$base == "train" & pers$fold %in% tarea$entren)
+filas_pred <- function(tarea) {
+  if (is.null(tarea$pred)) which(pers$base == "test") else which(pers$base == "train" & pers$fold %in% tarea$pred)
+}
+# V3: tasa de pobreza de cada oficio entre los ocupados de entrenamiento,
+# suavizada hacia la media con peso 20 (ajustar_v3), y su media, mínimo y
+# máximo entre los ocupados de cada hogar (predecir_v3). `oficio` permite
+# usar otros valores (sección 15).
+ajustar_v3 <- function(tarea) {
+  i_ent <- filas_ent(tarea)
   ocup_ent <- i_ent[pers$ocup[i_ent]]
   media <- mean(pers$pobre[ocup_ent])
   tasas <- tibble(oficio = pers$oficio[ocup_ent], pobre = pers$pobre[ocup_ent]) |>
     summarize(.by = oficio, n = n(), tasa = mean(pobre)) |> mutate(te = (n * tasa + 20 * media) / (n + 20))
-  # V4: personas en edad de trabajar (las demás tienen ingreso 0).
-  i_lab <- i_ent[pers$pet[i_ent]]
-  m_v4 <- xgb_parada(X_pers[i_lab, col_v4], log1p(pers$Ingtot[i_lab]), pers$id[i_lab], params_v4, tarea$semilla)
-  pred_log <- predict(m_v4, xgb.DMatrix(X_pers[i_pred, col_v4], missing = NA),
-                      iterationrange = c(1, xgb.attr(m_v4, "best_iteration") + 1))
-  # P: clasificador por persona.
-  m_p <- xgb_parada(X_pers[i_ent, col_p], pers$pobre[i_ent], pers$id[i_ent], params_p, tarea$semilla + 1)
-  p_pers <- predict(m_p, xgb.DMatrix(X_pers[i_pred, col_p], missing = NA),
-                    iterationrange = c(1, xgb.attr(m_p, "best_iteration") + 1))
-  pp <- pers[i_pred, ] |>
-    mutate(te = coalesce(tasas$te[match(oficio, tasas$oficio)], media),
-           ing = if_else(pet, pmax(expm1(pred_log), 0), 0),
-           lo  = qlogis(pmin(pmax(p_pers, 1e-6), 1 - 1e-6)))
-  te_hogar <- pp |> filter(ocup) |>
+  list(tasas = tasas, media = media)
+}
+predecir_v3 <- function(v3, filas, oficio = pers$oficio[filas]) {
+  pers[filas, ] |> mutate(te = coalesce(v3$tasas$te[match(oficio, v3$tasas$oficio)], v3$media)) |>
+    filter(ocup) |>
     summarize(.by = id, te_oficio_media = mean(te), te_oficio_min = min(te), te_oficio_max = max(te))
-  hogar <- resumir_ing(pp) |> left_join(resumir_prob(pp, "p_pers"), by = "id") |>
-    left_join(te_hogar, by = "id") |> mutate(across(starts_with("te_oficio"), ~ coalesce(.x, media)))
-  r2 <- NULL
-  if (!is.null(tarea$pred)) {
-    obs <- pers$pet[i_pred]
-    r2 <- tibble(real = log1p(pers$Ingtot[i_pred][obs]), pred = pred_log[obs])
-  }
-  list(hogar = hogar, r2 = r2, iter_v4 = xgb.attr(m_v4, "best_iteration"),
-       iter_p = xgb.attr(m_p, "best_iteration"))
+}
+# Une las variables por fold de un hogar: ingreso predicho, probabilidades por
+# persona y V3 (los hogares sin ocupados quedan con la media de V3).
+unir_tablas <- function(tablas, te_hogar, media) {
+  reduce(tablas, left_join, by = "id") |> left_join(te_hogar, by = "id") |>
+    mutate(across(starts_with("te_oficio"), ~ coalesce(.x, media)))
+}
+tarea_v34p <- function(tarea) {
+  # V3, V4 (ingreso predicho) y P (clasificador por persona): V4 y P con
+  # tarea_v4() y tarea_pc() de 3.4 y sus configuraciones originales
+  # (conf_v4_original y conf_p_original, con las mismas semillas).
+  v3 <- ajustar_v3(tarea)
+  v4 <- tarea_v4(tarea, conf_v4_original)
+  p  <- tarea_pc(tarea, conf_p_original)
+  list(hogar = unir_tablas(list(v4$hogar, p$hogar), predecir_v3(v3, filas_pred(tarea)), v3$media), r2 = v4$r2)
 }
 
 tareas <- list()
@@ -504,23 +535,40 @@ correr_tareas <- function(tarea_fun, archivo, etiqueta) {
 # Ingreso predicho por persona configurable (V4t, V4h, V4c). `conf`: params,
 # hogar (TRUE: también las variables del hogar x_pers_hog), componentes (TRUE:
 # un modelo para el ingreso laboral y otro para el no laboral, que se suman) y
-# sufijo de las columnas; extra (TRUE: también x_pers_extra).
-tarea_v4 <- function(tarea, conf) {
-  i_ent  <- which(pers$base == "train" & pers$fold %in% tarea$entren)
-  i_pred <- if (is.null(tarea$pred)) which(pers$base == "test") else which(pers$base == "train" & pers$fold %in% tarea$pred)
+# sufijo de las columnas; desfase (de la semilla; 10 si no se da); extra
+# (TRUE: también x_pers_extra); tweedie (TRUE:
+# objetivo Tweedie sobre el ingreso en pesos, que predice la media; con el
+# log del ingreso la predicción queda más cerca de la mediana y la suma del
+# hogar se subestima; `params` trae tweedie_variance_power).
+# ajustar_v4() estima los modelos (uno, o dos con componentes) y predecir_v4()
+# arma las variables del hogar para las personas `filas`, con sus predictores
+# o con otros (X, sección 15).
+columnas_v4 <- function(conf) (if (conf$hogar) col_p else col_v4) | (isTRUE(conf$extra) & col_extra)
+ajustar_v4 <- function(tarea, conf) {
+  i_ent <- filas_ent(tarea)
   i_lab <- i_ent[pers$pet[i_ent]]
-  columnas <- (if (conf$hogar) col_p else col_v4) | (isTRUE(conf$extra) & col_extra)
   objetivos <- if (conf$componentes) list(pers$ing_lab, pers$ing_nolab) else list(pers$Ingtot)
-  ing <- Reduce(`+`, imap(objetivos, function(obj, j) {
-    m <- xgb_parada(X_pers[i_lab, columnas], log1p(obj[i_lab]), pers$id[i_lab], conf$params, tarea$semilla + 10 * j)
-    pmax(expm1(predict(m, xgb.DMatrix(X_pers[i_pred, columnas], missing = NA),
-                       iterationrange = c(1, xgb.attr(m, "best_iteration") + 1))), 0)
+  imap(objetivos, function(obj, j) {
+    etiqueta <- if (isTRUE(conf$tweedie)) pmax(obj[i_lab], 0) else log1p(obj[i_lab])
+    xgb_parada(X_pers[i_lab, columnas_v4(conf)], etiqueta, pers$id[i_lab], conf$params,
+               tarea$semilla + (conf$desfase %||% 10) + 10 * (j - 1))
+  })
+}
+predecir_v4 <- function(modelos, conf, filas, X = X_pers[filas, ]) {
+  ing <- Reduce(`+`, map(modelos, function(m) {
+    pred <- predict(m, xgb.DMatrix(X[, columnas_v4(conf)], missing = NA),
+                    iterationrange = c(1, xgb.attr(m, "best_iteration") + 1))
+    pmax(if (isTRUE(conf$tweedie)) pred else expm1(pred), 0)
   }))
-  pp <- pers[i_pred, ] |> mutate(ing = if_else(pet, ing, 0))
+  pp <- pers[filas, ] |> mutate(ing = if_else(pet, ing, 0))
   hogar <- resumir_ing(pp)
   names(hogar)[-1] <- paste0(names(hogar)[-1], conf$sufijo)
-  r2 <- if (!is.null(tarea$pred)) with(pp[pp$pet, ], tibble(real = log1p(Ingtot), pred = log1p(ing)))
-  list(hogar = hogar, r2 = r2)
+  list(hogar = hogar, pp = pp)
+}
+tarea_v4 <- function(tarea, conf) {
+  res <- predecir_v4(ajustar_v4(tarea, conf), conf, filas_pred(tarea))
+  r2 <- if (!is.null(tarea$pred)) with(res$pp[res$pp$pet, ], tibble(real = log1p(Ingtot), pred = log1p(ing)))
+  list(hogar = res$hogar, r2 = r2)
 }
 # R² de un ingreso predicho en las tareas de validación: por persona
 # (log1p Ingtot, como r2_v4) y por hogar (z = log(ingreso / línea) sobre
@@ -588,19 +636,72 @@ afinado_v4f <- readRDS(archivo_afinado_v4f)
 fila_v4f <- mejor_v4(afinado_v4f)
 confs_v4$f <- list(hogar = fila_v4f$hogar, componentes = fila_v4f$componentes, extra = TRUE, sufijo = "_f",
                    params = modifyList(params_v4, list(eta = 0.05, max_depth = fila_v4f$max_depth, min_child_weight = 20)))
+# V4w: como V4f, con objetivo Tweedie (ver tarea_v4); se escoge la potencia
+# de la varianza (entre Poisson, 1, y gamma, 2) por el R² por hogar.
+archivo_afinado_v4w <- file.path(dir_out, "afinado_v4w.rds")
+conf_v4w <- function(potencia, componentes = confs_v4$f$componentes, sufijo = "_w") {
+  modifyList(confs_v4$f, list(tweedie = TRUE, sufijo = sufijo, componentes = componentes,
+                              params = modifyList(confs_v4$f$params, list(
+                                objective = "reg:tweedie", tweedie_variance_power = potencia,
+                                eval_metric = paste0("tweedie-nloglik@", potencia)))))
+}
+if (!file.exists(archivo_afinado_v4w)) {
+  afinado_v4w <- map_dfr(c(1.2, 1.5, 1.8), function(potencia) {
+    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_v4, conf = modifyList(conf_v4w(potencia), list(sufijo = "")),
+                    mc.cores = nucleos - 1, mc.preschedule = FALSE)
+    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del ingreso predicho V4w")
+    r <- r2_validacion(res)
+    marca(sprintf("Ingreso predicho Tweedie: potencia = %.1f  R2 persona = %.4f  R2 hogar = %.4f",
+                  potencia, r[["r2_persona"]], r[["r2_hogar"]]))
+    tibble(potencia = potencia, r2_persona = r[["r2_persona"]], r2_hogar = r[["r2_hogar"]])
+  })
+  saveRDS(afinado_v4w, archivo_afinado_v4w)
+}
+afinado_v4w <- readRDS(archivo_afinado_v4w)
+confs_v4$w <- conf_v4w(slice_max(afinado_v4w, r2_hogar, n = 1, with_ties = FALSE)$potencia)
+# V4x: la mejor potencia quedó en el borde de la grilla (1.2), así que se
+# prueban potencias menores y mayores cerca de ella, por componentes (como
+# V4w) y sobre el ingreso total. Si gana la misma configuración de V4w, no
+# hay V4x.
+archivo_afinado_v4x <- file.path(dir_out, "afinado_v4x.rds")
+if (!file.exists(archivo_afinado_v4x)) {
+  grid_v4x <- expand_grid(potencia = c(1.05, 1.1, 1.2, 1.3), componentes = c(TRUE, FALSE)) |>
+    filter(!(potencia == 1.2 & componentes == confs_v4$f$componentes))   # ya está en afinado_v4w
+  afinado_v4x <- pmap_dfr(grid_v4x, function(potencia, componentes) {
+    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_v4, conf = conf_v4w(potencia, componentes, sufijo = ""),
+                    mc.cores = nucleos - 1, mc.preschedule = FALSE)
+    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del ingreso predicho V4x")
+    r <- r2_validacion(res)
+    marca(sprintf("Ingreso predicho Tweedie: potencia = %.2f componentes = %s  R2 persona = %.4f  R2 hogar = %.4f",
+                  potencia, componentes, r[["r2_persona"]], r[["r2_hogar"]]))
+    tibble(potencia = potencia, componentes = componentes, r2_persona = r[["r2_persona"]], r2_hogar = r[["r2_hogar"]])
+  })
+  saveRDS(afinado_v4x, archivo_afinado_v4x)
+}
+afinado_v4x <- bind_rows(mutate(afinado_v4w, componentes = confs_v4$f$componentes), readRDS(archivo_afinado_v4x))
+fila_v4x <- slice_max(afinado_v4x, r2_hogar, n = 1, with_ties = FALSE)
+if (!(fila_v4x$potencia == confs_v4$w$params$tweedie_variance_power && fila_v4x$componentes == confs_v4$w$componentes))
+  confs_v4$x <- conf_v4w(fila_v4x$potencia, fila_v4x$componentes, sufijo = "_x")
 
 # Clasificador por persona configurable (Pt, Pe y cortes C). `conf`: params,
-# extra (TRUE: también x_pers_extra), corte (objetivo: ingreso del hogar menor
+# extra (TRUE: también x_pers_extra), imputado (TRUE: también x_pers_imp),
+# etiqueta (otra variable a predecir, p. ej. Indigente), desfase (de la
+# semilla; 5 si no se da), corte (objetivo: ingreso del hogar menor
 # que `corte` veces la línea; 1 = pobre) y prefijo de las columnas.
-tarea_pc <- function(tarea, conf) {
-  i_ent  <- which(pers$base == "train" & pers$fold %in% tarea$entren)
-  i_pred <- if (is.null(tarea$pred)) which(pers$base == "test") else which(pers$base == "train" & pers$fold %in% tarea$pred)
-  columnas <- col_p | (isTRUE(conf$extra) & col_extra)
-  etiqueta <- if (conf$corte == 1) pers$pobre else as.integer(z_pers < log(conf$corte))
-  m <- xgb_parada(X_pers[i_ent, columnas], etiqueta[i_ent], pers$id[i_ent], conf$params, tarea$semilla + 5)
-  p <- predict(m, xgb.DMatrix(X_pers[i_pred, columnas], missing = NA), iterationrange = c(1, xgb.attr(m, "best_iteration") + 1))
-  list(hogar = pers[i_pred, ] |> mutate(lo = qlogis(pmin(pmax(p, 1e-6), 1 - 1e-6))) |> resumir_prob(conf$prefijo))
+# Como V4: ajustar_pc() estima el modelo y predecir_pc() arma las variables
+# del hogar.
+columnas_pc <- function(conf) col_p | (isTRUE(conf$extra) & col_extra) | (isTRUE(conf$imputado) & col_imp)
+ajustar_pc <- function(tarea, conf) {
+  i_ent <- filas_ent(tarea)
+  etiqueta <- if (!is.null(conf$etiqueta)) as.integer(pers[[conf$etiqueta]]) else
+    if (conf$corte == 1) pers$pobre else as.integer(z_pers < log(conf$corte))
+  xgb_parada(X_pers[i_ent, columnas_pc(conf)], etiqueta[i_ent], pers$id[i_ent], conf$params, tarea$semilla + (conf$desfase %||% 5))
 }
+predecir_pc <- function(m, conf, filas, X = X_pers[filas, ]) {
+  p <- predict(m, xgb.DMatrix(X[, columnas_pc(conf)], missing = NA), iterationrange = c(1, xgb.attr(m, "best_iteration") + 1))
+  pers[filas, ] |> mutate(lo = qlogis(pmin(pmax(p, 1e-6), 1 - 1e-6))) |> resumir_prob(conf$prefijo)
+}
+tarea_pc <- function(tarea, conf) list(hogar = predecir_pc(ajustar_pc(tarea, conf), conf, filas_pred(tarea)))
 calcular_auc <- function(puntaje, real) {
   r <- rank(puntaje); n1 <- sum(real == 1); n0 <- sum(real == 0)
   # as.numeric: n1 * n0 desborda los enteros de R.
@@ -646,29 +747,32 @@ confs_p <- list(
   c080 = conf_p(mejor_p(afinado_p), 0.8, "pc080"),
   c125 = conf_p(mejor_p(afinado_p), 1.25, "pc125")
 )
+# Pa: como Pe, más el arriendo imputado del hogar.
+confs_p$pa <- modifyList(confs_p$pe, list(imputado = TRUE, prefijo = "pa"))
 
-# PI: clasificador por persona de Indigente (solo train; como P, con sus
-# mismas variables e hiperparámetros).
-tarea_ind <- function(tarea) {
-  i_ent  <- which(pers$base == "train" & pers$fold %in% tarea$entren)
-  i_pred <- if (is.null(tarea$pred)) which(pers$base == "test") else which(pers$base == "train" & pers$fold %in% tarea$pred)
-  m <- xgb_parada(X_pers[i_ent, col_p], as.integer(pers$Indigente[i_ent]), pers$id[i_ent], params_p, tarea$semilla + 4)
-  p <- predict(m, xgb.DMatrix(X_pers[i_pred, col_p], missing = NA), iterationrange = c(1, xgb.attr(m, "best_iteration") + 1))
-  list(hogar = pers[i_pred, ] |> mutate(lo = qlogis(pmin(pmax(p, 1e-6), 1 - 1e-6))) |> resumir_prob("p_ind"))
-}
+# Configuraciones originales de V4 y P (tarea_v34p, 3.3) y de PI: clasificador
+# por persona de Indigente (solo train; como P, con sus mismas variables e
+# hiperparámetros). `desfase`: lo que se suma a la semilla de la tarea.
+conf_v4_original <- list(hogar = FALSE, componentes = FALSE, sufijo = "", params = params_v4, desfase = 0)
+conf_p_original  <- list(extra = FALSE, corte = 1, prefijo = "p_pers", params = params_p, desfase = 1)
+conf_ind <- list(extra = FALSE, corte = 1, etiqueta = "Indigente", prefijo = "p_ind", params = params_p, desfase = 4)
 
 # IS: índices supervisados, logit de pobre sobre las variables de cada grupo
 # (a nivel hogar, con los hogares de `tarea$entren`).
-tarea_isup <- function(tarea) {
+# ajustar_isup() estima un logit por grupo y predecir_isup() predice los
+# hogares d_pred (también con variables permutadas, sección 15).
+ajustar_isup <- function(tarea) {
   i_ent <- which(fold %in% tarea$entren)
-  d_pred <- if (is.null(tarea$pred)) hog_te else hog_tr[fold %in% tarea$pred, ]
+  map(grupos_indice, ~ glm(reformulate(names(.x), "pobre"), family = binomial,
+                           data = mutate(hog_tr[i_ent, ], pobre = y[i_ent])))
+}
+predecir_isup <- function(modelos, d_pred) {
   hogar <- tibble(id = d_pred$id)
-  for (g in names(grupos_indice)) {
-    m <- glm(reformulate(names(grupos_indice[[g]]), "pobre"), family = binomial,
-             data = mutate(hog_tr[i_ent, ], pobre = y[i_ent]))
-    hogar[[paste0("idx_", g, "_sup")]] <- unname(predict(m, d_pred))
-  }
-  list(hogar = hogar)
+  for (g in names(modelos)) hogar[[paste0("idx_", g, "_sup")]] <- unname(predict(modelos[[g]], d_pred))
+  hogar
+}
+tarea_isup <- function(tarea) {
+  list(hogar = predecir_isup(ajustar_isup(tarea), if (is.null(tarea$pred)) hog_te else hog_tr[fold %in% tarea$pred, ]))
 }
 
 # Usa la partición `semilla`: fija fold y calcula (o lee) V3/V4/P, P2 y Z
@@ -688,7 +792,7 @@ cambiar_particion <- function(semilla) {
                                    paste0("Ingreso predicho V4", .y, sufijo))),
     imap(confs_p, ~ correr_tareas(function(t) tarea_pc(t, .x), file.path(dir_out, paste0("persona_", .y, sufijo, ".rds")),
                                   paste("Clasificador por persona", .y, sufijo))),
-    list(ind  = correr_tareas(tarea_ind,  file.path(dir_out, paste0("indigencia", sufijo, ".rds")), paste("Indigencia PI", sufijo)),
+    list(ind  = correr_tareas(function(t) tarea_pc(t, conf_ind), file.path(dir_out, paste0("indigencia", sufijo, ".rds")), paste("Indigencia PI", sufijo)),
          isup = correr_tareas(tarea_isup, file.path(dir_out, paste0("indices_sup", sufijo, ".rds")), paste("Índices supervisados IS", sufijo))))
   invisible(NULL)
 }
@@ -701,10 +805,10 @@ r2_ingreso <- bind_rows(
   imap_dfr(confs_v4, ~ c(version = paste0("V4", .y), as.list(r2_validacion(extra[[.y]], .x$sufijo))) |> as_tibble()))
 saveRDS(r2_ingreso, file.path(dir_out, "r2_ingreso.rds"))
 marca("R² del ingreso predicho (validación):"); print(as.data.frame(r2_ingreso), digits = 4)
-# AUC por hogar del clasificador por persona: P original, Pt y Pe.
-auc_persona <- tibble(version = c("P", "Pt", "Pe"),
+# AUC por hogar del clasificador por persona: P original, Pt, Pe y Pa.
+auc_persona <- tibble(version = c("P", "Pt", "Pe", "Pa"),
                       auc_hogar = c(auc_validacion(v34p, "p_pers"), auc_validacion(extra$pt, "pt"),
-                                    auc_validacion(extra$pe, "pe")))
+                                    auc_validacion(extra$pe, "pe"), auc_validacion(extra$pa, "pa")))
 saveRDS(auc_persona, file.path(dir_out, "auc_persona.rds"))
 marca("AUC por hogar del clasificador por persona (validación):"); print(as.data.frame(auc_persona), digits = 4)
 
@@ -715,8 +819,8 @@ marca("AUC por hogar del clasificador por persona (validación):"); print(as.dat
 # Matriz de predictores para unos hogares, con las variables por fold (V3, V4
 # y P) de `tabla` y ing_pred_por_ocup.
 armar <- function(base_hog, tabla, vars) {
-  por_fold <- unlist(cols[c("V3", "V4", "P", "P2", "Z", "V4t", "V4h", "V4c", "V4e", "V4f", "PI", "IS", "Pt", "Pe", "C080", "C125")])
-  if (any(vars %in% c(por_fold, "ing_pred_por_ocup", cols$N4, cols$T))) {
+  por_fold <- unlist(cols[c("V3", "V4", "P", "P2", "Z", "V4t", "V4h", "V4c", "V4e", "V4f", "V4w", "V4x", "PI", "IS", "Pt", "Pe", "Pa", "C080", "C125")])
+  if (any(vars %in% c(por_fold, "ing_pred_por_ocup", cols$N4, cols$T, cols$A, "ing_arr_pc_lp_w"))) {
     base_hog <- base_hog |> select(-any_of(por_fold)) |> left_join(tabla, by = "id") |>
       mutate(
         # Ingreso predicho por ocupado, relativo a la línea de pobreza.
@@ -739,8 +843,12 @@ armar <- function(base_hog, tabla, vars) {
         p_pers_min_2 = p_pers_min^2, arriendo_2 = log_arriendo_pc_lp^2,
         educ_max_2 = educ_max^2, dependencia_2 = dependencia^2)
     # ing_pred_por_ocup de los ingresos predichos de 3.4.
-    for (s in intersect(c("_t", "_h", "_c", "_e", "_f"), sub("ing_pred_total", "", names(base_hog))))
+    for (s in intersect(c("_t", "_h", "_c", "_e", "_f", "_w", "_x"), sub("ing_pred_total", "", names(base_hog))))
       base_hog[[paste0("ing_pred_por_ocup", s)]] <- base_hog[[paste0("ing_pred_total", s)]] / pmax(base_hog$n_ocup, 1) / exp(base_hog$log_lp)
+    # Ingreso predicho más arriendo imputado (A), como Ingpcug.
+    for (s in intersect(c("", "_t", "_h", "_c", "_e", "_f", "_w", "_x"), sub("ing_pred_total", "", names(base_hog))))
+      base_hog[[paste0("ing_arr_pc_lp", s)]] <- log((base_hog[[paste0("ing_pred_total", s)]] + base_hog$arriendo_imputado + 1) /
+                                                      base_hog$n_ug / exp(base_hog$log_lp))
   }
   codificar(base_hog[vars])
 }
@@ -776,15 +884,12 @@ matrices <- function(f, vars) {
        X_val = armar(hog_tr[i_val, ], tabla_tarea(paste0("val_", f)), vars))
 }
 
-calcular_f1  <- function(pred, real) { vp <- sum(pred == 1 & real == 1); 2 * vp / (sum(pred == 1) + sum(real == 1)) }
-# calcular_auc() está en 3.4.
+# calcular_f1() y evaluar_umbral() están en 00_master_file.r; calcular_auc(),
+# en 3.4.
 # F1 promedio de los folds por umbral (como 04-07 de main) y el mejor.
-f1_cv <- function(prob, umbrales = grid_umbral) {
-  map_dfr(1:k, function(i) {
-    p <- prob[fold == i]; real <- y[fold == i]
-    tibble(umbral = umbrales, f1 = map_dbl(umbrales, ~ calcular_f1(as.integer(p > .x), real)))
-  }) |> summarize(f1 = mean(f1), .by = umbral) |> slice_max(f1, n = 1, with_ties = FALSE)
-}
+f1_cv <- function(prob, umbrales = grid_umbral) select(evaluar_umbral(prob, y, fold, umbrales), umbral, f1)
+# Umbral honesto: el umbral de cada fold se escoge con los otros 4 (5.9).
+umbral_honesto <- function(prob) evaluar_umbral(prob, y, fold, grid_umbral)$f1_honesto
 
 # Validación cruzada de XGBoost a nivel hogar. Predicción fuera de muestra
 # (OOF) de cada hogar con parada temprana en su fold. Los folds corren en
@@ -1001,13 +1106,7 @@ p_comb3 <- comb3$w1 * mejor_clf$prob + comb3$w2 * mejor_reg$prob + (1 - comb3$w1
 # los mismos folds en que lo mide (optimista). Umbral honesto: el umbral de
 # cada fold se escoge con los otros 4. Umbral por zona: uno para cabeceras y
 # otro para el resto, escogidos también con los otros 4 folds.
-umbral_honesto <- function(prob) {
-  tabla <- sapply(1:k, function(f) map_dbl(grid_umbral, ~ calcular_f1(as.integer(prob[fold == f] > .x), y[fold == f])))
-  mean(map_dbl(1:k, function(f) {
-    u <- grid_umbral[which.max(rowMeans(tabla[, -f, drop = FALSE]))]
-    calcular_f1(as.integer(prob[fold == f] > u), y[fold == f])
-  }))
-}
+# (umbral_honesto() está en la sección 4.)
 zona <- hog_tr$cabecera
 umbral_zona_honesto <- function(prob) {
   mean(map_dbl(1:k, function(f) {
@@ -1305,6 +1404,58 @@ mejoras4 <- tibble(prueba = map_chr(pruebas4, "nombre"), variables = map_int(pru
                    umbral = map_dbl(pruebas4, "umbral"), iter = map_dbl(pruebas4, ~ mean(.x$iters)))
 saveRDS(list(mejoras = mejoras4, afinado_v4f = afinado_v4f, r2_ingreso = r2_ingreso), file.path(dir_out, "mejoras4.rds"))
 marca("Ingreso V4f, hiperparámetros y selección con el modelo nuevo:"); print(as.data.frame(mejoras4), digits = 4)
+
+# 5.24 Arriendo imputado (A, Pa) e ingreso predicho Tweedie (V4w) sobre el
+# mejor modelo (`ref7`). pobre = (ingresos de la unidad de gasto + arriendo
+# imputado) / personas < línea: el modelo tenía el ingreso predicho y el
+# arriendo por separado (y el arriendo mezclando lo que paga un arrendatario
+# con lo que estima un propietario); A les da la suma hecha.
+ref7 <- mejor_nuevo
+AW <- list(
+  A   = variante(ref7, "A", c(ref7$vars, cols$A), pesos = ref7$pesos),
+  Pa  = variante(ref7, "Pa", c(ref7$vars, cols$Pa), pesos = ref7$pesos),
+  V4w = variante(ref7, "V4w", c(ref7$vars, cols$V4w, "ing_arr_pc_lp_w"), pesos = ref7$pesos)
+)
+AW$todo3 <- variante(ref7, "todo3", unique(c(ref7$vars, cols$A, cols$Pa, cols$V4w, "ing_arr_pc_lp_w")),
+                     pesos = ref7$pesos)
+nuevas5 <- c(cols$A, cols$Pa, cols$V4w, "ing_arr_pc_lp_w")
+mejoras5 <- tibble(prueba = map_chr(c(list(ref7), AW), "nombre"),
+                   variables = map_int(c(list(ref7), AW), ~ length(.x$vars)),
+                   f1 = map_dbl(c(list(ref7), AW), "f1"),
+                   f1_honesto = map_dbl(c(list(ref7), AW), ~ umbral_honesto(.x$prob)),
+                   umbral = map_dbl(c(list(ref7), AW), "umbral"),
+                   ganancia_nuevas = map_dbl(c(list(ref7), AW), ~ sum(.x$importancia$importancia[.x$importancia$variable %in% nuevas5])))
+saveRDS(list(mejoras = mejoras5, afinado_v4w = afinado_v4w, r2_ingreso = r2_ingreso, auc_persona = auc_persona),
+        file.path(dir_out, "mejoras5.rds"))
+marca("Arriendo imputado e ingreso Tweedie:"); print(as.data.frame(mejoras5), digits = 4)
+pruebas_nuevas <- c(pruebas_nuevas, AW)
+mejor_nuevo <- mejor_de(pruebas_nuevas)
+
+# 5.25 Tweedie afinado (V4x, en vez de V4w y junto a V4w) y regresión del
+# ingreso con las variables del mejor modelo; la regresión que mejor combina
+# con el mejor modelo pasa a ser `reg_comb` (sección 6).
+ref8 <- mejor_nuevo
+X4 <- list()
+if (!is.null(confs_v4$x) && any(ref8$vars %in% cols$V4w)) {
+  X4 <- list(
+    V4x     = variante(ref8, "V4x", c(setdiff(ref8$vars, c(cols$V4w, "ing_arr_pc_lp_w")), cols$V4x), pesos = ref8$pesos),
+    mas_V4x = variante(ref8, "mas_V4x", c(ref8$vars, cols$V4x), pesos = ref8$pesos)
+  )
+  pruebas_nuevas <- c(pruebas_nuevas, X4)
+  mejor_nuevo <- mejor_de(pruebas_nuevas)
+}
+R3 <- list(R_final = cv_hogar(paste0("R_", mejor_nuevo$nombre), mejor_nuevo$vars, regresion = TRUE,
+                              pesos = peso_linea(3, 0.25)))
+regs <- c(regs, R3)
+combs_reg <- map(regs, ~ combinar(mejor_nuevo, .x))
+reg_comb <- regs[[which.max(map_dbl(combs_reg, "f1"))]]
+mejoras6 <- tibble(prueba = c(ref8$nombre, map_chr(X4, "nombre"), paste(mejor_nuevo$nombre, "+", map_chr(regs, "nombre"))),
+                   f1 = c(ref8$f1, map_dbl(X4, "f1"), map_dbl(combs_reg, "f1")),
+                   f1_honesto = c(umbral_honesto(ref8$prob), map_dbl(X4, ~ umbral_honesto(.x$prob)),
+                                  map_dbl(combs_reg, ~ umbral_honesto(.x$w * .x$a$prob + (1 - .x$w) * .x$b$prob))),
+                   w = c(NA, rep(NA, length(X4)), map_dbl(combs_reg, "w")))
+saveRDS(list(mejoras = mejoras6, afinado_v4x = afinado_v4x), file.path(dir_out, "mejoras6.rds"))
+marca("Tweedie afinado y regresión con el mejor modelo:"); print(as.data.frame(mejoras6), digits = 4)
 marca("Mejor modelo:", mejor_nuevo$nombre, "- F1 =", round(mejor_nuevo$f1, 4))
 
 # Resumen de todas las pruebas (el AUC se recalcula con las probabilidades).
@@ -1691,6 +1842,365 @@ if (!completo) {
   saveRDS(ruido2, file.path(dir_out, "ruido_final.rds"))
   marca("F1 del mejor modelo con otras particiones:"); print(as.data.frame(ruido2), digits = 4)
 }
+
+################################################################################
+
+## 13. Combinación con el logit lasso de main
+
+# El logit lasso con interacciones de main (06_logit_interacciones.r), corrido
+# con output/pruebas/logit/06_logit_interacciones_main.r: usa la misma base por
+# hogar y los mismos 5 folds, así que sus probabilidades fuera de muestra se
+# pueden promediar con las de XGBoost. Es un modelo muy distinto (lineal en
+# sus 1.159 columnas), así que comete errores distintos. Dos combinaciones:
+# XGBoost + logit y XGBoost + regresión + logit, con pesos y umbral por F1.
+archivo_logit <- here("output", "pruebas", "logit", if (prueba) "logit_oof_prueba.rds" else "logit_oof.rds")
+if (file.exists(archivo_logit)) {
+  lg <- readRDS(archivo_logit)
+  stopifnot(all(train$id %in% lg$id_train), all(test$id %in% lg$id_test))
+  logit <- c(list(nombre = "logit_main", prob = lg$prob_cv[match(train$id, lg$id_train)]),
+             f1_cv(lg$prob_cv[match(train$id, lg$id_train)]))
+  comb_lg <- combinar(mejor_nuevo, logit, pesos = seq(0.5, 1, by = 0.05))
+  pesos_lg3 <- expand_grid(w1 = seq(0.4, 1, 0.05), w2 = seq(0, 0.6, 0.05)) |> filter(w1 + w2 <= 1 + 1e-9)
+  tabla_lg3 <- pmap_dfr(pesos_lg3, function(w1, w2) {
+    m <- f1_cv(w1 * mejor_nuevo$prob + w2 * reg_comb$prob + (1 - w1 - w2) * logit$prob)
+    tibble(w1 = w1, w2 = w2, umbral = m$umbral, f1 = m$f1)
+  })
+  comb_lg3 <- slice_max(tabla_lg3, f1, n = 1, with_ties = FALSE)
+  w_reg <- combinar(mejor_nuevo, reg_comb)$w   # peso de XGBoost en XGBoost + regresión, con el mejor modelo actual
+  probs_lg <- list(xgboost = mejor_nuevo$prob, logit = logit$prob,
+                   xgboost_regresion = w_reg * mejor_nuevo$prob + (1 - w_reg) * reg_comb$prob,
+                   xgboost_logit = comb_lg$w * mejor_nuevo$prob + (1 - comb_lg$w) * logit$prob,
+                   xgboost_regresion_logit = comb_lg3$w1 * mejor_nuevo$prob + comb_lg3$w2 * reg_comb$prob +
+                     (1 - comb_lg3$w1 - comb_lg3$w2) * logit$prob)
+  con_logit <- tibble(modelo = names(probs_lg),
+                      pesos = c(NA, NA, sprintf("%.2f / %.2f", w_reg, 1 - w_reg),
+                                sprintf("%.2f / %.2f", comb_lg$w, 1 - comb_lg$w),
+                                sprintf("%.2f / %.2f / %.2f", comb_lg3$w1, comb_lg3$w2, 1 - comb_lg3$w1 - comb_lg3$w2)),
+                      f1 = map_dbl(probs_lg, ~ f1_cv(.x)$f1), umbral = map_dbl(probs_lg, ~ f1_cv(.x)$umbral),
+                      f1_honesto = map_dbl(probs_lg, umbral_honesto),
+                      auc = map_dbl(probs_lg, ~ calcular_auc(.x, y)))
+  saveRDS(con_logit, file.path(dir_out, "combinacion_logit.rds"))
+  marca("Combinación con el logit de main:"); print(as.data.frame(con_logit), digits = 4)
+  # Submission de la mejor combinación con el logit, si su F1 honesto es mayor
+  # que el de XGBoost solo y que el de XGBoost + regresión.
+  mejor_lg <- con_logit |> filter(str_detect(modelo, "logit$"), modelo != "logit") |> slice_max(f1_honesto, n = 1, with_ties = FALSE)
+  if (mejor_lg$f1_honesto > max(con_logit$f1_honesto[con_logit$modelo %in% c("xgboost", "xgboost_regresion")])) {
+    p_lg_te <- lg$prob_test[match(test$id, lg$id_test)]
+    p_xgb_te <- prob_test(mejor_nuevo)
+    if (mejor_lg$modelo == "xgboost_logit") {
+      guardar_submission(comb_lg$w * p_xgb_te + (1 - comb_lg$w) * p_lg_te, mejor_lg$umbral,
+                         sprintf("comb_%s_logit_w%03d", mejor_nuevo$nombre, round(100 * comb_lg$w)))
+    } else {
+      guardar_submission(comb_lg3$w1 * p_xgb_te + comb_lg3$w2 * prob_test(reg_comb) + (1 - comb_lg3$w1 - comb_lg3$w2) * p_lg_te,
+                         mejor_lg$umbral, sprintf("comb_%s_R_logit_w%03d_%03d", mejor_nuevo$nombre,
+                                                  round(100 * comb_lg3$w1), round(100 * comb_lg3$w2)))
+    }
+  }
+}
+################################################################################
+
+## 14. Importancia por permutación del mejor modelo
+
+# ¿Cuánto cae el F1 si se rompe la relación de una variable con pobre? Para el
+# mejor modelo (mejor_nuevo combinado con la regresión reg_comb, como en la
+# sección 6): en cada fold se vuelven a estimar el clasificador y la regresión
+# con los otros 4 (mismos hiperparámetros, base, pesos y rondas que en la CV,
+# así que dan las mismas predicciones fuera de muestra; se verifica), se
+# permutan al azar los valores de la variable entre los hogares del fold de
+# validación y se mide el F1 con el umbral de la combinación. Importancia =
+# F1 original - F1 con la variable permutada, promedio de los 5 folds y de 3
+# permutaciones. Las variables muy correlacionadas (p. ej. las versiones del
+# ingreso predicho) se reemplazan entre sí, y permutadas por separado pierden
+# poca importancia; por eso también se permutan grupos (la misma permutación
+# para todas sus columnas, que conserva la relación entre ellas).
+ubicacion <- c("dominio", "depto", "cabecera", "log_lp")
+grupos_imp <- list(
+  "Ingreso predicho por persona (todas las versiones)" =
+    c(cols$V4, "ing_pred_por_ocup", cols$V4t, cols$V4h, cols$V4c, cols$V4e, cols$V4f, cols$V4w, cols$V4x,
+      setdiff(cols$A, "arr_imp_pc_lp"), "ing_arr_pc_lp_w"),
+  "Probabilidad de ser pobre por persona (stacking)" = c(cols$P, cols$Pt, cols$Pe, cols$Pa),
+  "Probabilidad de ingreso menor a 0,8 y 1,25 líneas" = c(cols$C080, cols$C125),
+  "Tasa de pobreza del oficio" = cols$V3,
+  "Ubicación (dominio, departamento, zona, línea)" = ubicacion,
+  "Base por hogar de 01b (sin ubicación)" = setdiff(x_base, ubicacion),
+  "Otras construidas (expansión, mejor ocupado, productos, razones)" =
+    c(cols$V1, cols$V2, cols$nuestras, cols$N1, setdiff(cols$N2, "ing_pred_por_ocup"), cols$N3, "arr_imp_pc_lp")
+)
+grupo_de <- function(v) { g <- names(grupos_imp)[map_lgl(grupos_imp, ~ v %in% .x)]; if (length(g)) g[1] else "Otras" }
+comb_final <- combinar(mejor_nuevo, reg_comb)
+repeticiones <- 3
+archivo_perm <- file.path(dir_out, paste0("importancia_permutacion_", mejor_nuevo$nombre, ".rds"))
+# Modelo de `res` estimado sin el fold f (como en cv_hogar(); también en 15).
+modelo_fold <- function(res, f) {
+  m <- matrices(f, res$vars)
+  etiqueta <- if (res$regresion) z else y
+  peso <- if (res$base == "aumentada") ifelse(y == 1, sum(y == 0) / sum(y == 1), 1) else rep(1, length(y))
+  if (!is.null(res$pesos)) peso <- peso * res$pesos
+  usar <- if (res$base == "sin_ricos") train$hogar_rico == 0 else rep(TRUE, length(y))
+  ent <- usar[m$i_ent]
+  dtr <- xgb.DMatrix(m$X_ent[ent, , drop = FALSE], label = etiqueta[m$i_ent][ent],
+                     weight = peso[m$i_ent][ent], missing = NA)
+  list(b = xgb.train(params = res$params, data = dtr, nrounds = res$iters[f] + 1, verbose = 0),
+       X_val = m$X_val, i_val = m$i_val, rango = c(1, res$iters[f] + 1))
+}
+# Permuta las filas de las columnas `columnas` de X (data.frame o matriz).
+permutar <- function(X, columnas, perm) {
+  for (v in intersect(columnas, colnames(X))) {
+    if (is.data.frame(X)) X[[v]] <- X[[v]][perm] else X[, v] <- X[perm, v]
+  }
+  X
+}
+if (!file.exists(archivo_perm)) {
+  conjuntos <- c(as.list(set_names(mejor_nuevo$vars)), grupos_imp)
+  t0 <- Sys.time()
+  res_perm <- mclapply(1:k, function(f) {
+    mc <- modelo_fold(mejor_nuevo, f); mr <- modelo_fold(reg_comb, f)
+    stopifnot(identical(mc$i_val, mr$i_val))
+    predecir <- function(Xc, Xr) {
+      pc <- predict(mc$b, xgb.DMatrix(Xc, missing = NA), iterationrange = mc$rango)
+      pr <- predict(mr$b, xgb.DMatrix(Xr, missing = NA), iterationrange = mr$rango)
+      comb_final$w * pc + (1 - comb_final$w) * plogis(reg_comb$cal[1] + reg_comb$cal[2] * pr)
+    }
+    real <- y[mc$i_val]
+    base <- predecir(mc$X_val, mr$X_val)
+    # Debe reproducir la predicción fuera de muestra de la combinación.
+    dif <- max(abs(base - (comb_final$w * mejor_nuevo$prob[mc$i_val] + (1 - comb_final$w) * reg_comb$prob[mc$i_val])))
+    f1_base <- calcular_f1(as.integer(base > comb_final$umbral), real)
+    map_dfr(seq_len(repeticiones), function(r) {
+      set.seed(1000 * r + f)
+      perm <- sample(length(real))
+      imap_dfr(conjuntos, function(columnas, nombre) {
+        p <- predecir(permutar(mc$X_val, columnas, perm), permutar(mr$X_val, columnas, perm))
+        tibble(nombre = nombre, fold = f, repeticion = r,
+               caida = f1_base - calcular_f1(as.integer(p > comb_final$umbral), real))
+      })
+    }) |> mutate(f1_base = f1_base, dif_oof = dif)
+  }, mc.cores = 3, mc.preschedule = FALSE)   # 3: con 5 procesos el Mac (8 GB) se quedó sin memoria
+  if (any(map_lgl(res_perm, ~ inherits(.x, "try-error")))) stop("Falló la importancia por permutación")
+  res_perm <- bind_rows(res_perm)
+  if (max(res_perm$dif_oof) > 1e-4) stop("Los modelos por fold no reproducen la predicción fuera de muestra")
+  saveRDS(res_perm, archivo_perm)
+  marca(sprintf("Importancia por permutación lista (%.0f min)", as.numeric(difftime(Sys.time(), t0, units = "mins"))))
+}
+res_perm <- readRDS(archivo_perm)
+importancia_perm <- res_perm |>
+  summarize(.by = nombre, de = sd(caida), caida = mean(caida)) |>
+  mutate(tipo = if_else(nombre %in% names(grupos_imp), "grupo", "variable"),
+         grupo = if_else(tipo == "grupo", nombre, map_chr(nombre, grupo_de))) |>
+  arrange(desc(caida))
+# Ganancia de XGBoost (clasificador) por grupo, para comparar.
+ganancia_grupo <- mejor_nuevo$importancia |> mutate(grupo = map_chr(variable, grupo_de)) |>
+  summarize(.by = grupo, ganancia = sum(importancia), variables = n())
+saveRDS(list(importancia = importancia_perm, ganancia_grupo = ganancia_grupo,
+             f1_base = mean(distinct(res_perm, fold, f1_base)$f1_base), umbral = comb_final$umbral, w = comb_final$w),
+        file.path(dir_out, "importancia_permutacion.rds"))
+marca("Importancia por permutación (caída del F1):"); print(as.data.frame(head(importancia_perm, 30)), digits = 3)
+
+# Las tablas para el documento las arma 06_comparacion_modelos.r (sección 7)
+# con importancia_permutacion.rds.
+
+################################################################################
+
+## 15. Importancia de extremo a extremo por concepto
+
+# La sección 14 permuta las variables a la entrada del modelo por hogar: si se
+# permuta la educación del hogar, los modelos auxiliares (ingreso predicho,
+# probabilidad por persona, cortes, tasa del oficio) siguen viendo la
+# educación de cada persona y se quedan con el crédito. Aquí se permuta cada
+# concepto en toda la cadena: sus variables de las personas (las que entran a
+# los modelos auxiliares) y del hogar (las que entran al clasificador y a la
+# regresión), se vuelven a calcular las variables de los modelos auxiliares y
+# después la predicción final, y se mide la caída del F1 (con el umbral de la
+# combinación). Tres formas:
+#   total: se permutan las variables de las personas y las del hogar;
+#   directa: solo las del hogar (los modelos auxiliares ven los datos reales);
+#   vía modelos: solo las de las personas (efecto a través de los auxiliares).
+# En cada fold se vuelven a estimar los modelos auxiliares de la tarea de
+# validación y los dos modelos finales, con sus semillas (reproducen la
+# predicción fuera de muestra; se verifica). Una permutación por fold (la
+# misma en las tres formas); el promedio es de los 5 folds.
+pers_beneficios <- c("recibio_horas_extra", "recibio_primas", "recibio_bonificaciones",
+                     grep("^(prima_|subsidio_)", colnames(X_pers), value = TRUE),
+                     "pago_especie_alimentos", "pago_especie_vivienda", "transporte_empresa",
+                     "pago_especie_otros", "viaticos_permanentes", "bonificaciones_anuales")
+conceptos <- list(
+  "Educación" = list(
+    pers = c("max_educ", "anos_educ_imp", "educ_max_adultos"),
+    hog = c("educ_max", "educ_media_adultos", "educ_ocup_media", "educ_ocup_suma_pc", "prop_superior", "n_sin_educ",
+            "n_ocup_superior", "superior_formal_pc", "jefe_educ", "educ_max_adultos", "cv_educ_adultos",
+            "ocup_max_educ", "brecha_educ_jefe", "rel_dom_educ_max", "rel_dom_educ_media", "educ_adultos_x_ocup_pc",
+            "educ_ocup_x_formal_pc", "jefe_educ_x_formal", "n_estudia")),
+  "Ocupación y horas de trabajo" = list(
+    pers = c("ocupado", "desocupado", "inactivo", "actividad_sem_pasada", "horas_trabajo_semana",
+             "horas_segundo_trabajo", "segundo_trabajo", "log_meses_empresa", "prop_ocupados_hogar"),
+    hog = c("n_ocup", "ocup_pc", "ocup_por_adulto", "n_desocup", "desocup_pc", "n_inactivo_adulto", "horas_pc",
+            "horas_formal_pc", "horas_informal_pc", "n_segundo_trab", "n_pareja_ocup", "n_hijos_ocup",
+            "n_oficios_hogar", "max_log_meses", "jefe_ocup", "jefe_desocup", "jefe_log_meses", "ocup_max_horas",
+            "cv_horas_ocupados", "dep_por_ocup", "horas_por_ocup", "rel_dom_horas_pc", "rel_dom_ocup_pc",
+            "ocup_pc_x_log_lp", "horas_pc_x_formal", "educ_adultos_x_ocup_pc")),
+  "Formalidad, posición y oficio" = list(
+    pers = c("posicion_ocupacional", "tamano_empresa", "oficio", "cotiza_pension"),
+    hog = c("n_formal", "formal_pc", "prop_formal_ocup", "horas_formal_pc", "horas_informal_pc", "n_asalariado",
+            "n_gobierno", "n_domestico", "n_cuenta_propia", "n_patron", "n_sin_pago", "n_jornalero",
+            "n_empresa_sola", "n_empresa_peq", "n_empresa_grande", grep("^n_of_", x_base, value = TRUE),
+            "jefe_formal", "jefe_posicion", "jefe_tamano", "jefe_oficio", "ocup_max_tamano", "ocup_posicion_educ",
+            "superior_formal_pc", "educ_ocup_x_formal_pc", "horas_pc_x_formal", "jefe_educ_x_formal")),
+  "Salud" = list(
+    pers = c("regimen_salud", "afiliado_salud"),
+    hog = c("prop_contributivo", "prop_subsidiado", "n_especial", "n_no_afiliado", "jefe_regimen")),
+  "Primas, subsidios y pagos en especie" = list(
+    pers = pers_beneficios,
+    hog = c("beneficios_pc", "n_con_beneficios", "n_horas_extra", "beneficios_por_ocup")),
+  "Ingresos no laborales" = list(
+    pers = c("recibio_arriendos_pensiones", "recibio_pension_jubilacion", "recibio_pension_alimenticia",
+             "recibio_otros_ingresos", grep("^dinero_", colnames(X_pers), value = TRUE), "ayudas_instituciones"),
+    hog = c(grep("^any_", x_base, value = TRUE), "n_fuentes_no_lab")),
+  "Búsqueda de trabajo e ingresos de desocupados" = list(
+    pers = c("posicion_segundo_trabajo", "quiere_mas_horas", "diligencias_mas_horas", "disponible_mas_horas",
+             "diligencias_cambiar_trabajo", "disponible_nuevo_trabajo", "primera_vez_busca_trabajo",
+             "posicion_ultimo_trabajo", "ingreso_trabajo_desocupado", "ingreso_trabajo_desocupado_2"),
+    hog = c("n_quiere_mas_horas")),
+  "Vivienda y arriendo" = list(
+    pers = c("arriendo_pc_sobre_lp", "tenencia_vivienda", "arr_imp_pc_lp"),
+    hog = c("tenencia", "cuartos_pc", "pers_por_dormitorio", "log_arriendo_pc_lp", "arriendo_na",
+            "arriendo_es_pagado", "log_cuota_pc_lp", "arriendo_x_log_lp", "rel_dom_log_arriendo", "arr_imp_pc_lp",
+            "arriendo_imputado")),
+  "Edad, sexo y tamaño del hogar" = list(
+    pers = c("anos", "mujer", "parentesco_jefe_hogar", "personas_hogar"),
+    hog = c("n_ug", "log_n_ug", "n_menor6", "n_menor12", "n_menor18", "n_mayor65", "dependencia", "prop_menores",
+            "prop_mujer_ug", "jefe_edad", "jefe_edad2", "jefe_mujer", "jefe_mujer_sola", "dep_por_ocup")),
+  "Ubicación y línea de pobreza" = list(
+    pers = c("dominio", "depto", "cabecera", "linea_pobreza"),
+    hog = c("dominio", "depto", "cabecera", "log_lp", "fex_c", "fex_dpto", "ocup_pc_x_log_lp", "arriendo_x_log_lp"))
+)
+stopifnot(all(unlist(map(conceptos, "pers")) %in% colnames(X_pers)), all(unlist(map(conceptos, "hog")) %in% names(hog_tr)))
+# Modelos auxiliares que usan el clasificador o la regresión (V4 y P
+# originales siempre; V3 en predecir_final()).
+vars_finales <- union(mejor_nuevo$vars, reg_comb$vars)
+usa <- function(columnas) any(columnas %in% vars_finales)
+confs_aux_v4 <- c(list(original = conf_v4_original),
+                  keep(confs_v4, ~ usa(cols[[paste0("V4", sub("_", "", .x$sufijo))]])))
+confs_aux_p  <- c(list(original = conf_p_original), if (usa(cols$PI)) list(ind = conf_ind),
+                  keep(confs_p, ~ usa(paste0(.x$prefijo, "_", resumen_p))))
+# Los índices supervisados (IS) son logits del hogar: se recalculan con las
+# variables del hogar permutadas. Los índices sin supervisar (I) quedan como
+# están (no se recalculan).
+usa_is <- usa(cols$IS)
+
+# Cadena de modelos del fold f (secciones 15 y 16): estima los modelos
+# auxiliares de la tarea de validación y toma los dos modelos finales.
+# predecir_final() da la probabilidad combinada con predictores de las
+# personas Xp (y su oficio) y del hogar hv, pasando por los modelos auxiliares.
+cadena_fold <- function(f) {
+  tarea <- tareas[[paste0("val_", f)]]
+  filas <- filas_pred(tarea)
+  v3 <- ajustar_v3(tarea)
+  mods_v4 <- map(confs_aux_v4, ~ ajustar_v4(tarea, .x))
+  mods_p  <- map(confs_aux_p, ~ ajustar_pc(tarea, .x))
+  mods_is <- if (usa_is) ajustar_isup(tarea)
+  mc <- modelo_fold(mejor_nuevo, f); mr <- modelo_fold(reg_comb, f)
+  mc$X_val <- mr$X_val <- NULL; invisible(gc())
+  real <- y[mc$i_val]
+  predecir_final <- function(Xp, oficio, hv) {
+    tablas <- c(map2(mods_v4, confs_aux_v4, ~ predecir_v4(.x, .y, filas, Xp)$hogar),
+                map2(mods_p, confs_aux_p, ~ predecir_pc(.x, .y, filas, Xp)),
+                if (usa_is) list(predecir_isup(mods_is, hv)))
+    tabla <- unir_tablas(tablas, predecir_v3(v3, filas, oficio), v3$media)
+    pc <- predict(mc$b, xgb.DMatrix(armar(hv, tabla, mejor_nuevo$vars), missing = NA), iterationrange = mc$rango)
+    pr <- predict(mr$b, xgb.DMatrix(armar(hv, tabla, reg_comb$vars), missing = NA), iterationrange = mr$rango)
+    comb_final$w * pc + (1 - comb_final$w) * plogis(reg_comb$cal[1] + reg_comb$cal[2] * pr)
+  }
+  f1_de <- function(p) calcular_f1(as.integer(p > comb_final$umbral), real)
+  Xp0 <- X_pers[filas, ]; of0 <- pers$oficio[filas]; hv0 <- hog_tr[mc$i_val, ]
+  base <- predecir_final(Xp0, of0, hv0)
+  # Diferencia con la predicción fuera de muestra (se verifica que sea ~0).
+  dif <- max(abs(base - (comb_final$w * mejor_nuevo$prob[mc$i_val] + (1 - comb_final$w) * reg_comb$prob[mc$i_val])))
+  list(predecir_final = predecir_final, f1_de = f1_de, f1_base = f1_de(base), dif = dif,
+       Xp0 = Xp0, of0 = of0, hv0 = hv0, n_pers = length(filas), n_hog = length(real))
+}
+
+archivo_e2e <- file.path(dir_out, paste0("importancia_conceptos_", mejor_nuevo$nombre, ".rds"))
+if (!completo && !file.exists(archivo_e2e)) {
+  t0 <- Sys.time()
+  res_e2e <- mclapply(1:k, function(f) {
+    cad <- cadena_fold(f)
+    imap_dfr(conceptos, function(cpt, nombre) {
+      set.seed(100 * f + match(nombre, names(conceptos)))
+      perm_p <- sample(cad$n_pers); perm_h <- sample(cad$n_hog)
+      Xp <- permutar(cad$Xp0, cpt$pers, perm_p)
+      of <- if ("oficio" %in% cpt$pers) cad$of0[perm_p] else cad$of0
+      hv <- permutar(cad$hv0, cpt$hog, perm_h)
+      tibble(concepto = nombre, fold = f,
+             total       = cad$f1_base - cad$f1_de(cad$predecir_final(Xp, of, hv)),
+             directa     = cad$f1_base - cad$f1_de(cad$predecir_final(cad$Xp0, cad$of0, hv)),
+             via_modelos = cad$f1_base - cad$f1_de(cad$predecir_final(Xp, of, cad$hv0)))
+    }) |> mutate(f1_base = cad$f1_base, dif_oof = cad$dif)
+  }, mc.cores = 2, mc.preschedule = FALSE)   # 2: cada proceso guarda ~14 modelos y los datos del fold
+  fallas <- keep(res_e2e, ~ inherits(.x, "try-error"))
+  if (length(fallas)) stop("Falló la importancia por concepto: ", conditionMessage(attr(fallas[[1]], "condition")))
+  res_e2e <- bind_rows(res_e2e)
+  if (max(res_e2e$dif_oof) > 1e-4) stop("La cadena de modelos por fold no reproduce la predicción fuera de muestra")
+  saveRDS(res_e2e, archivo_e2e)
+  marca(sprintf("Importancia por concepto lista (%.0f min)", as.numeric(difftime(Sys.time(), t0, units = "mins"))))
+}
+if (!completo) {
+  importancia_conceptos <- readRDS(archivo_e2e) |>
+    pivot_longer(c(total, directa, via_modelos), names_to = "forma", values_to = "caida") |>
+    summarize(.by = c(concepto, forma), de = sd(caida), caida = mean(caida)) |>
+    pivot_wider(names_from = forma, values_from = c(caida, de)) |>
+    mutate(variables_personas = map_int(concepto, ~ length(conceptos[[.x]]$pers)),
+           variables_hogar = map_int(concepto, ~ length(intersect(conceptos[[.x]]$hog, union(mejor_nuevo$vars, "arriendo_imputado"))))) |>
+    arrange(desc(caida_total))
+  saveRDS(list(importancia = importancia_conceptos, conceptos = conceptos), file.path(dir_out, "importancia_conceptos.rds"))
+  marca("Importancia de extremo a extremo por concepto (caída del F1):"); print(as.data.frame(importancia_conceptos), digits = 3)
+}
+
+################################################################################
+
+## 16. Importancia de extremo a extremo por variable de la persona
+
+# Como la sección 15, pero una variable de la persona a la vez (no un
+# concepto): se permuta en las personas y pasa por toda la cadena de modelos.
+# Solo las variables de la persona de los 5 conceptos con mayor caída total
+# (los demás caen 0,05 o menos en total). Las variables del hogar construidas
+# con ella no se permutan: mide el efecto a través de los modelos auxiliares,
+# que en los conceptos importantes es casi todo (subestima las que pesan sobre
+# todo en el hogar, como la tenencia de la vivienda).
+# Un fold a la vez: con 2 procesos la memoria no alcanza (swap) y la sección 15
+# tardó 3 horas. Cada fold se guarda aparte y se retoma si se interrumpe.
+if (!completo) {
+  variables_e2e <- imap_dfr(conceptos[head(importancia_conceptos$concepto, 5)],
+                            ~ tibble(variable = .x$pers, concepto = .y)) |>
+    distinct(variable, .keep_all = TRUE)
+  archivo_var <- file.path(dir_out, paste0("importancia_variables_e2e_", mejor_nuevo$nombre, ".rds"))
+  t0 <- Sys.time()
+  res_var <- map_dfr(1:k, function(f) {
+    archivo_f <- sub("\\.rds$", paste0("_fold", f, ".rds"), archivo_var)
+    if (file.exists(archivo_f)) return(readRDS(archivo_f))
+    cad <- cadena_fold(f)
+    r <- pmap_dfr(variables_e2e, function(variable, concepto) {
+      set.seed(1000 * f + match(variable, variables_e2e$variable))
+      perm_p <- sample(cad$n_pers)
+      Xp <- permutar(cad$Xp0, variable, perm_p)
+      of <- if (variable == "oficio") cad$of0[perm_p] else cad$of0
+      tibble(variable = variable, concepto = concepto, fold = f,
+             caida = cad$f1_base - cad$f1_de(cad$predecir_final(Xp, of, cad$hv0)))
+    }) |> mutate(f1_base = cad$f1_base, dif_oof = cad$dif)
+    if (max(r$dif_oof) > 1e-4) stop("La cadena de modelos por fold no reproduce la predicción fuera de muestra")
+    saveRDS(r, archivo_f)
+    marca(sprintf("Importancia por variable: fold %d listo (%.0f min)", f,
+                  as.numeric(difftime(Sys.time(), t0, units = "mins"))))
+    rm(cad); invisible(gc())
+    r
+  })
+  importancia_var_e2e <- res_var |>
+    summarize(.by = c(variable, concepto), de = sd(caida), caida = mean(caida)) |>
+    arrange(desc(caida))
+  saveRDS(importancia_var_e2e, file.path(dir_out, "importancia_variables_e2e.rds"))
+  marca("Importancia de extremo a extremo por variable de la persona (caída del F1):")
+  print(as.data.frame(importancia_var_e2e), digits = 3)
+}
+
 marca("=== TERMINADO")
 
 ### NOTAS:
@@ -1821,6 +2331,52 @@ marca("=== TERMINADO")
 # - Ruido (12): con las particiones 456 y 789, el modelo final le gana al
 #   anterior a las preguntas no usadas por +0.0124 y +0.0117 (+0.0110 con la
 #   principal). El F1 del modelo final es 0.7733 / 0.7749 / 0.7735.
+
+# Corrida del 2026-10-25 (5.24-5.25, 9-13), sobre F =
+# G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05 (F1
+# 0.7733, honesto 0.7724):
+# - Arriendo imputado (variable nueva de 01; Ingpcug = (ingresos de la unidad
+#   de gasto + arriendo imputado) / personas, regla del DANE reconstruida en
+#   el 98,4% de los hogares). A (ingreso predicho + arriendo imputado, como
+#   Ingpcug): 0.7741. Pa (clasificador por persona con el arriendo): 0.7728
+#   (AUC por hogar 0.9350, igual que Pe). Aportan poco: el modelo ya cruzaba
+#   ingreso predicho, arriendo y tenencia.
+# - Ingreso predicho Tweedie (V4w; potencia 1.2, por componentes, con
+#   variables del hogar y las preguntas no usadas): R2 por hogar 0.629 ->
+#   0.657 y F1 0.7772 (honesto 0.7772), +0.004, el mayor aporte desde las
+#   preguntas no usadas. Con el log del ingreso la predicción se acerca a la
+#   mediana y la suma del hogar se subestima; Tweedie predice la media.
+#   Potencias 1.05-1.3 y Tweedie sobre el ingreso total (5.25) no mejoran
+#   (R2 por hogar 0.633-0.657). Todo junto (A, Pa, V4w): 0.7762.
+# - Combinado con la regresión (70/30): 0.7775 (honesto 0.7775), el mejor. La
+#   regresión con las variables de V4w (R2 0.838, F1 0.7743) combina igual.
+# - Random forest con las variables de V4w: 0.7745-0.7752; con XGBoost 0.7773.
+#   Especialista: 0.7764-0.7772. Logit de main (sección 13, F1 0.7451): peso
+#   óptimo 0 con V4w; sin Tweedie (con F) sube 0.7736 -> 0.7740 (ruido).
+# - Ruido (12): el modelo con V4w da 0.7772 / 0.7784 / 0.7767 en las tres
+#   particiones, +0.015 sobre el anterior a las preguntas no usadas en todas.
+
+# Importancia por permutación (14; corrida del 2026-10-26) del mejor modelo
+# (V4w + regresión, F1 0.7775, umbral 0.39). Por grupos, caída del F1: ingreso
+# predicho por persona 0.423 (el F1 baja a 0.35), cortes de 0.8 y 1.25 líneas
+# 0.061, probabilidad por persona 0.044, base de 01b 0.010, otras construidas
+# 0.005, ubicación 0.002, tasa del oficio 0.0005. Por variable: ing_arr_pc_lp_w
+# 0.043 (ingreso Tweedie + arriendo imputado), log_ing_pred_pc_lp_e 0.023,
+# log_ing_pred_pc_lp_f 0.006, pe_min 0.006, tenencia 0.004; 21 de las 163
+# variables tienen caída nula o negativa. Con 5 procesos en paralelo el Mac
+# se quedó sin memoria y se reinició: se corre con 3.
+
+# Importancia de extremo a extremo por concepto (15; corrida del 2026-10-26,
+# 187 min; la cadena reconstruida reproduce la predicción fuera de muestra con
+# diferencia 2e-14). Caída del F1 total (directa / vía modelos auxiliares):
+# formalidad, posición y oficio 0.226 (0.002 / 0.226); ingresos no laborales
+# 0.143 (0.001 / 0.137); vivienda y arriendo 0.118 (0.037 / 0.045); ocupación
+# y horas 0.117 (0.005 / 0.122); búsqueda de trabajo e ingresos de
+# desocupados 0.070 (0.000 / 0.070); edad, sexo y tamaño 0.050 (0.035 /
+# 0.023); ubicación 0.024; educación 0.021; primas y subsidios 0.012; salud
+# 0.009. Las variables de base importan sobre todo a través de los modelos
+# auxiliares; la permutación de la sección 14 (solo a la entrada del modelo
+# por hogar) las subestima.
 
 # Ruido: con 4 particiones distintas, el F1 del mejor modelo varía 0.0003
 # (sd) y la mejora sobre H1 es de +0.0025 (sd 0.001) en todas. Diferencias de

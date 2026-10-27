@@ -30,6 +30,8 @@ p_load(
   tidyverse,  # Manipulación de datos.
   e1071       # Modelos naive bayes.
 )
+# Variables y funciones comunes (categoricas, x1, preparar, prob_hogar, calcular_f1).
+source(here("script", "00_master_file.r"))
 
 ################################################################################
 
@@ -62,15 +64,9 @@ x_educ <- c("educ_preescolar", "educ_primaria", "educ_secundaria",
             "educ_media", "educ_superior", "educ_no_sabe")
 
 # Variables como factor para que naive bayes las trate como categóricas y no
-# como normales: las categóricas con códigos DANE, el texto y las dummies 0/1.
-# Se aplica igual a train y a test, si no predict() no reconoce los tipos.
-categoricas <- c("max_educ", "regimen_salud", "actividad_sem_pasada", "cotiza_pension", "tamano_empresa", "oficio", "posicion_ocupacional", "tenencia_vivienda")
-preparar <- function(x) {
-  x |>
-    mutate(across(any_of(categoricas), factor),
-           across(where(is.character), factor),
-           across(where(~ is.numeric(.x) && all(.x %in% c(0, 1, NA))), factor))
-}
+# como normales: las categóricas con códigos DANE, el texto y las dummies 0/1
+# (preparar(x, binarias = TRUE), en 00_master_file.r). Se aplica igual a train
+# y a test, si no predict() no reconoce los tipos.
 
 # Educación
 x1 <- train |> select(anos, educ_ninguno) # Iniciamos con edad y educ. minima
@@ -123,6 +119,7 @@ x22 <- train |> select(anos, anos2, all_of(x_educ), segundo_trabajo)
 # poner prop_edad_trabajar
 
 # Todas las variables anteriores que vale la pena añadir al modelo de educacion
+# (es el x1 de 00_master_file.r, que usan 04-06; aquí x1 es la primera prueba).
 xtodas <- train |> select(anos, anos_educ_imp,
                           mujer, ocupado, afiliado_salud, regimen_salud,
                           actividad_sem_pasada, log_meses_empresa, tamano_empresa,
@@ -144,31 +141,16 @@ fold    <- fold[match(train$id, hogares)]
 
 ## 3. Validación cruzada
 
-# Probabilidad de que cada hogar sea pobre: promedio de los log odds
-# (log(p / (1 - p))) de sus miembros, devuelto a probabilidad. En esa escala
-# pesan más los miembros con señal fuerte, y da mejor F1 que promediar
-# probabilidades. El hogar se predice pobre si pasa del umbral.
-prob_hogar <- function(modelo, x, id, umbral = 0.5) {
-  # Recorte para que p = 0 o p = 1 no den log odds infinitos.
-  p <- pmin(pmax(predict(modelo, x, type = "raw")[, "1"], 1e-6), 1 - 1e-6)
-  tibble(id = id, prob = p) |>
-    summarize(prob = plogis(mean(qlogis(prob))), .by = id) |>
-    mutate(pred = as.integer(prob > umbral))
-}
-
-# F1 a partir de predicciones y valores reales (0/1).
-calcular_f1 <- function(pred, real) {
-  vp        <- sum(pred == 1 & real == 1)
-  precision <- vp / sum(pred == 1)
-  recall    <- vp / sum(real == 1)
-  2 * precision * recall / (precision + recall)
-}
+# Probabilidad de que cada hogar sea pobre: promedio de los log odds de sus
+# miembros (prob_hogar() de 00_master_file.r). El hogar se predice pobre si
+# pasa del umbral.
+p_pobre <- function(modelo, x) predict(modelo, x, type = "raw")[, "1"]
 
 # F1 por validación cruzada de naive bayes con covariables x. Se predice
 # igual que en test: se promedian los log odds de los miembros de cada
 # hogar y el F1 se calcula con una predicción por hogar.
 cv_naive_bayes <- function(x, y, fold, id = train$id) {
-  x <- preparar(x)
+  x <- preparar(x, binarias = TRUE)
 
   k  <- max(fold)
   f1 <- numeric(k)
@@ -177,9 +159,9 @@ cv_naive_bayes <- function(x, y, fold, id = train$id) {
     modelo <- naiveBayes(x[!prueba & entrenar, ], y[!prueba & entrenar])
 
     # Todos los miembros de un hogar comparten pobre: se toma uno por hogar.
-    hogar <- prob_hogar(modelo, x[prueba, ], id[prueba]) |>
+    hogar <- prob_hogar(p_pobre(modelo, x[prueba, ]), id[prueba]) |>
       left_join(distinct(tibble(id = id[prueba], real = y[prueba])), by = "id")
-    f1[i] <- calcular_f1(hogar$pred, hogar$real)
+    f1[i] <- calcular_f1(as.integer(hogar$prob > 0.5), hogar$real)
     cat("Fold", i, "- F1:", round(f1[i], 4), "\n")
   }
   # Promedio entre folds (cada F1 ya usa las probabilidades promediadas).
@@ -225,13 +207,13 @@ grid_umbral  <- seq(0.1, 0.6, by = 0.01)
 
 # F1 promedio de los folds para cada combinación de laplace y umbral.
 grid_search <- function(x, y, fold, id = train$id) {
-  x <- preparar(x)
+  x <- preparar(x, binarias = TRUE)
   # Un proceso por valor de laplace (en paralelo).
   resultados <- parallel::mclapply(grid_laplace, function(l) {
     map_dfr(1:max(fold), function(i) {
       prueba <- fold == i
       modelo <- naiveBayes(x[!prueba & entrenar, ], y[!prueba & entrenar], laplace = l)
-      hogar  <- prob_hogar(modelo, x[prueba, ], id[prueba]) |>
+      hogar  <- prob_hogar(p_pobre(modelo, x[prueba, ]), id[prueba]) |>
         left_join(distinct(tibble(id = id[prueba], real = y[prueba])), by = "id")
       tibble(laplace = l, fold = i, umbral = grid_umbral,
              f1 = map_dbl(grid_umbral,
@@ -260,14 +242,13 @@ cat("Mejor: laplace =", mejor$laplace, "- umbral =", mejor$umbral,
 
 # Mejor modelo (xtodas) con los hiperparámetros del grid search y el mismo
 # tratamiento de variables que en la validación cruzada.
-modelo_xtodas <- naiveBayes(preparar(xtodas)[entrenar, ], y[entrenar], laplace = mejor$laplace)
+modelo_xtodas <- naiveBayes(preparar(xtodas, binarias = TRUE)[entrenar, ], y[entrenar], laplace = mejor$laplace)
 # Una predicción por hogar: promedio de los log odds de sus miembros.
-predicciones <- prob_hogar(modelo_xtodas,
-                           preparar(test |> select(all_of(names(xtodas)))),
-                           test$id, umbral = mejor$umbral)
+predicciones <- prob_hogar(p_pobre(modelo_xtodas, preparar(test |> select(all_of(names(xtodas))), binarias = TRUE)),
+                           test$id)
 nrow(predicciones)  # una fila por hogar de test
 
-predicciones <- predicciones |> select(id, pred) |> rename(pobre = pred)
+predicciones <- predicciones |> transmute(id, pobre = as.integer(prob > mejor$umbral))
 
 # Nombre con formato Kaggle: modelo_hiperparámetro_valor, sin punto decimal
 # (p. ej. NB_laplace_0_threshold_045.csv; con otra base, NB_aug_... o

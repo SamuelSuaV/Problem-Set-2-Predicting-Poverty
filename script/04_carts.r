@@ -33,6 +33,8 @@ p_load(
   rpart,      # Árboles de decisión (CART).
   caret       # Validación cruzada y fine tuning.
 )
+# Variables y funciones comunes (categoricas, x1, preparar, prob_hogar, calcular_f1).
+source(here("script", "00_master_file.r"))
 
 ################################################################################
 
@@ -60,26 +62,16 @@ entrenar <- if (base == "train_clean_sin_ricos") train$hogar_rico == 0 else rep(
 # (classProbs). La clase positiva va primero.
 y <- factor(train$pobre, levels = c(1, 0), labels = c("pobre", "no_pobre"))
 
-# Categóricas con códigos DANE como factor: si quedan numéricas, el árbol las
-# corta como si los códigos estuvieran ordenados (p. ej. régimen 1 < 2 < 3).
-# El texto (dominio, depto) también pasa a factor.
-categoricas <- c("max_educ", "regimen_salud", "actividad_sem_pasada",
-                 "cotiza_pension", "tamano_empresa", "oficio",
-                 "posicion_ocupacional", "tenencia_vivienda")
-preparar <- function(x) {
-  x |> mutate(across(any_of(categoricas), factor),
-              across(where(is.character), factor))
-}
+# Categóricas con códigos DANE como factor (preparar() de 00_master_file.r):
+# si quedan numéricas, el árbol las corta como si los códigos estuvieran
+# ordenados (p. ej. régimen 1 < 2 < 3). El texto (dominio, depto) también pasa
+# a factor.
 
 # Conjuntos de variables (vectores de nombres). Para probar uno nuevo, se
 # define aquí y se agrega una línea en la sección 4.
 
 # Mejor conjunto de naive bayes (03_naive_bayes.r).
-x1 <- c("anos", "anos_educ_imp", "mujer", "ocupado", "afiliado_salud",
-        "regimen_salud", "actividad_sem_pasada", "log_meses_empresa",
-        "tamano_empresa", "posicion_ocupacional", "horas_trabajo_semana",
-        "arriendo_pc_sobre_lp", "prop_ocupados_hogar", "tenencia_vivienda",
-        "recibio_arriendos_pensiones", "ayudas_instituciones")
+# x1 (en 00_master_file.r).
 
 # Ubicación: en naive bayes empeoraba (repite información), pero un árbol no
 # suma evidencia y puede usarla para separar casos que las demás no separan.
@@ -118,20 +110,7 @@ nombres_f1  <- sprintf("F1_%03d", round(100 * grid_umbral))  # F1_045 = 0.45
 
 # pobre es del hogar y la submission es una fila por hogar. Como en el 03, la
 # probabilidad del hogar es el promedio de los log odds de sus miembros.
-prob_hogar <- function(p, id) {
-  # Recorte: las hojas puras dan p = 0 o p = 1 y log odds infinitos.
-  p <- pmin(pmax(p, 1e-6), 1 - 1e-6)
-  tibble(id = id, prob = p) |>
-    summarize(prob = plogis(mean(qlogis(prob))), .by = id)
-}
-
-# F1 a partir de predicciones y valores reales (0/1 o lógicos).
-calcular_f1 <- function(pred, real) {
-  vp        <- sum(pred == 1 & real == 1)
-  precision <- vp / sum(pred == 1)
-  recall    <- vp / sum(real == 1)
-  2 * precision * recall / (precision + recall)
-}
+# prob_hogar() y calcular_f1() están en 00_master_file.r.
 
 # summaryFunction de caret: F1 por hogar de un fold de validación, uno por
 # umbral. rowIndex es la fila en train, con la que se recupera el id.

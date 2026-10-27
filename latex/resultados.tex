@@ -2,8 +2,12 @@
 \usepackage[spanish]{babel}
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, fit, backgrounds, calc}
 % Permite cortar línea en los guiones bajos de los nombres de variables y
 % archivos (\texttt{...}), que si no se salen del margen.
 \usepackage[strings,nohyphen]{underscore}
@@ -110,7 +114,8 @@ de XGBoost se describen en la Sección~\ref{sec:xgboost}.
       \texttt{eta} = 0,1; \texttt{min\_child\_weight} = 50 & 0,32 & 0,706 \\
     XGBoost por hogar & \texttt{05b\_xgboost\_hogar.r} & categóricas nativas; \texttt{eta} = 0,02;
       profundidad 8; \texttt{min\_child\_weight} = 50; \texttt{colsample} = 0,5;
-      ingreso predicho y modelo por persona con todas las preguntas & 0,38 & 0,773 \\
+      ingreso predicho (Tweedie) y modelo por persona con todas las preguntas;
+      combinado con la regresión del ingreso (70/30) & 0,39 & 0,778 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -120,7 +125,7 @@ Las predicciones de test están en \texttt{output/submissions/}:
 \texttt{CART\_up\_cp\_0000025\_threshold\_061.csv} (CART),
 \texttt{XGB\_x1\_nrounds\_500\_depth\_6\_eta\_01\_threshold\_029.csv} y
 \texttt{XGB\_x3\_nrounds\_500\_depth\_6\_eta\_01\_threshold\_032.csv}
-(XGBoost por persona) y \texttt{XGBH\_nativo\_G\_eta002\_depth6\_col08\_V4\_mas\_V4t\_todo2\_mas\_V4f\_af\_depth8\_mcw50\_col05\_threshold\_038.csv}
+(XGBoost por persona) y \texttt{XGBH\_nativo\_comb\_G\_eta002\_depth6\_col08\_V4\_mas\_V4t\_todo2\_mas\_V4f\_af\_depth8\_mcw50\_col05\_V4w\_R\_G\_eta002\_depth6\_col08\_V4\_mas\_V4t\_todo2\_peso\_w07\_threshold\_039.csv}
 (XGBoost por hogar, con \verb|CODIFICACION=nativo|). Todas se regeneran al correr cada script, con semilla fija.
 
 \subsection{XGBoost por persona}
@@ -389,12 +394,194 @@ particiones, recalculando todas las variables de la validación cruzada
 anidada. El mejor modelo les gana por 0,011, 0,012 y 0,012 en las tres
 particiones, y su $F_1$ es de 0,7733, 0,7749 y 0,7735.
 
+\begin{table}[H]
+  \centering
+  \small
+  \caption{XGBoost por hogar: arriendo imputado, ingreso predicho con pérdida
+    Tweedie y combinaciones, sobre el mejor modelo del cuadro anterior
+    ($F_1$ 0,7733).}
+  \label{tab:mejoras4}
+  \begin{tabular}{@{}p{8.6cm}cc@{}}
+    \toprule
+    Prueba & $F_1$ & $F_1$ honesto \\
+    \midrule
+    + ingreso predicho más arriendo imputado (como \texttt{Ingpcug}) & 0,7741 & -- \\
+    + ingreso predicho con pérdida Tweedie & 0,7772 & 0,7772 \\
+    \quad combinado con la regresión del ingreso (70/30) & 0,7775 & 0,7775 \\
+    \quad combinado con random forest & 0,7773 & 0,7770 \\
+    \quad combinado con el logit lasso del equipo & 0,7772 & 0,7772 \\
+    Logit lasso con interacciones (equipo, \texttt{06\_logit\_interacciones.r}) & 0,7451 & 0,7449 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+El objetivo se define con el ingreso per cápita de la unidad de gasto
+\emph{con arriendo imputado}: el DANE suma a los hogares que no pagan arriendo
+(propietarios y usufructuarios) lo que pagarían por su vivienda. Esa regla se
+puede reconstruir con variables que están en test (tenencia, arriendo
+estimado y cuota de amortización): coincide con el arriendo imputado del DANE
+en el 98,4\% de los hogares de train, y por ella 5,5\% de los hogares no son
+pobres. Con ella, \texttt{01\_data\_cleaning.r} crea \texttt{arriendo\_imputado},
+y el modelo recibe el ingreso predicho más el arriendo imputado, por persona y
+línea, como en la definición de pobreza. Aporta poco (0,7741): el modelo ya
+combinaba el ingreso predicho, el arriendo y la tenencia.
+
+Lo que sí mejora es cambiar la pérdida del modelo del ingreso por persona. Con
+error cuadrático sobre el logaritmo del ingreso, la predicción de cada persona
+se acerca a la mediana, y al sumar a los miembros del hogar el ingreso queda
+subestimado. La pérdida Tweedie (de XGBoost, para variables con muchos ceros y
+valores positivos asimétricos, entre la Poisson y la Gamma) predice la media
+del ingreso en pesos. Con potencia 1,2 y un modelo para el ingreso laboral y
+otro para el no laboral, el $R^2$ del ingreso del hogar pasa de 0,63 a 0,66 y
+el $F_1$ a 0,7772 (+0,004). El clasificador sigue siendo el mismo XGBoost;
+solo cambia la pérdida del modelo auxiliar. Combinado con la regresión del
+ingreso (70\% clasificador, 30\% regresión) llega a 0,7775, el mejor
+resultado. Con otras dos particiones en folds da 0,7784 y 0,7767, y le gana al
+modelo anterior a las preguntas nuevas por 0,015 en las tres. El logit lasso
+del equipo, que usa los mismos folds, no suma en la combinación (su peso
+óptimo es 0): con una correlación de 0,92 con XGBoost en log odds, se equivoca
+en los mismos hogares.
+
 Dos verificaciones dan una idea de qué tan confiables son estas diferencias.
 Con el umbral escogido de forma honesta (con los otros 4 folds), el $F_1$ del
 mejor modelo baja solo de 0,7598 a 0,7593. Y con otras tres particiones en
 folds, el $F_1$ del mejor modelo varía con una desviación estándar de 0,0003,
 y su mejora sobre H1 es de 0,0025 en promedio, positiva en las cuatro: las
 diferencias de menos de 0,001 entre modelos son ruido.
+
+\subsection{Estructura del modelo final}
+\label{sec:estructura}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  caja/.style={draw, rounded corners=3pt, align=center, inner sep=5pt, fill=white,
+              execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  datos/.style={caja, fill=gray!12, text width=5.2cm},
+  aux/.style={caja, fill=blue!7, text width=5.2cm},
+  hogar/.style={caja, fill=orange!12, text width=5cm},
+  final/.style={caja, fill=green!12, text width=5.6cm},
+  flecha/.style={-{Stealth[length=2.2mm]}, thick},
+  etiqueta/.style={font=\sffamily\scriptsize, fill=white, inner sep=1.5pt, align=center},
+  nota/.style={font=\sffamily\footnotesize, align=left, text width=5cm},
+  node distance=6mm and 10mm]
+
+% Datos
+\node[datos] (pers) {\textbf{Personas} (train y test)\\[2pt]
+  $\sim$60 variables de la persona (edad, educación, empleo, búsqueda de
+  trabajo, pagos en especie, salud, primas, ingresos no laborales\ldots)
+  + 6 del hogar + arriendo imputado};
+\node[datos, below=32mm of pers] (hog) {\textbf{Hogares} (base 01b)\\[2pt]
+  94 agregados (empleo, formalidad, educación, vivienda, demografía,
+  ubicación) + construidas (expansión, mejor ocupado, productos, razones,
+  relativas a la ciudad) + \textbf{arriendo imputado}};
+
+% Modelos auxiliares por persona
+\node[aux, right=of pers, yshift=22mm] (ing) {\textbf{Ingreso por persona}\\
+  (XGBoost, regresión)\\[2pt]
+  V4: log, original \quad V4t: afinado\\
+  V4e: con más variables de la persona\\
+  V4f: + hogar, laboral y no laboral\\
+  \textbf{V4w: pérdida Tweedie} (potencia 1,2)};
+\node[aux, below=of ing] (prob) {\textbf{Clasificadores por persona}\\
+  (XGBoost, logística)\\[2pt]
+  P: pobre \quad Pe: pobre, con más variables\\
+  C080 / C125: ingreso del hogar\\ $<$ 0,8 / 1,25 líneas};
+\node[aux, below=of prob] (ofi) {\textbf{Tasa de pobreza del oficio}\\
+  (V3, promedio suavizado)};
+\begin{scope}[on background layer]
+  \node[draw, dashed, rounded corners, fill=blue!2, inner sep=8pt, fit=(ing)(prob)(ofi),
+        label={[font=\sffamily\footnotesize\bfseries]above:Modelos auxiliares: validación cruzada anidada (26 modelos cada uno)}] {};
+\end{scope}
+
+% Agregación por hogar: ingreso predicho y probabilidades
+\node[hogar, right=14mm of ing] (agring) {\textbf{Ingreso predicho por hogar}\\[2pt]
+  Por versión: suma, por persona y por ocupado sobre la línea, máximo,
+  participación del jefe\\
+  \textbf{Ingreso Tweedie + arriendo imputado} por persona sobre la línea
+  (fórmula del DANE)};
+\node[hogar, right=14mm of prob, yshift=-9mm] (agrprob) {\textbf{Probabilidades y oficio por hogar}\\[2pt]
+  P, Pe, C080, C125: media, máximo, mínimo y la del jefe (log odds)\\
+  Oficio: media, mínimo y máximo de los ocupados};
+
+% Modelos por hogar
+\node[final, right=16mm of agring, yshift=-6mm] (clf) {\textbf{Clasificador XGBoost por hogar}\\[2pt]
+  163 variables, categóricas nativas\\
+  logística; eta 0,02; profundidad 8;\\
+  \texttt{min\_child\_weight} 50; \texttt{colsample} 0,5;\\
+  \texttt{subsample} 0,8; 613--869 árboles\\
+  \texttt{gamma} 0 (poda); \texttt{lambda} 1 (L2);\\
+  \texttt{alpha} 0 (L1)\\
+  $F_1$ solo: 0,7772};
+\node[final, right=16mm of agrprob, yshift=-12mm] (reg) {\textbf{Regresión XGBoost por hogar}\\[2pt]
+  $z = \log$(ingreso / línea), 152 variables\\
+  pesos $1 + 3e^{-|z|/0{,}25}$ (más peso cerca de la línea)\\
+  eta 0,05; profundidad 6\\
+  \texttt{gamma} 0 (poda); \texttt{lambda} 1 (L2);\\
+  \texttt{alpha} 0 (L1)\\
+  $\to$ probabilidad con un logit\\
+  $F_1$ sola: 0,7694};
+
+% Combinación
+\node[caja, fill=green!25, right=12mm of clf, yshift=-24mm, text width=3.6cm] (comb) {\textbf{Combinación}\\[2pt]
+  $p = 0{,}7\,p_{\mathrm{clasif.}} + 0{,}3\,p_{\mathrm{regr.}}$\\[2pt]
+  pobre si $p > 0{,}39$\\[4pt]
+  \textbf{$F_1$ = 0,7775}};
+
+% Flechas: datos -> auxiliares
+\draw[flecha] (pers.east) -- (ing.west);
+\draw[flecha] (pers.east) -- (prob.west);
+\draw[flecha] (pers.east) -- (ofi.west);
+\draw[flecha] (hog.east) -- ++(4mm,0) |- (ing.west);
+% Auxiliares -> agregación
+\draw[flecha] (ing.east) -- (agring.west);
+\draw[flecha] (prob.east) -- (agrprob.west);
+\draw[flecha] (ofi.east) -- (agrprob.west);
+% Agregación -> modelos por hogar
+\draw[flecha] ($(agring.east)+(0,3mm)$) -- node[etiqueta, above, sloped, pos=0.4] {todas las versiones} ($(clf.west)+(0,6mm)$);
+\coordinate (salida) at ($(agring.east)+(0,-6mm)$);
+\coordinate (ruta) at ($(salida)+(5mm,0)$);
+\draw[flecha] (salida) -- (ruta)
+  |- node[etiqueta, pos=0.14, rotate=90] {solo V4, V4t y V4e} ($(reg.west)+(0,9mm)$);
+\draw[flecha] (agrprob.east) -- ($(clf.west)+(0,-4mm)$);
+\draw[flecha] (agrprob.east) -- ($(reg.west)+(0,2mm)$);
+% La base por hogar entra directo a los dos modelos por hogar.
+\coordinate (bus) at ($(agrprob.east)!0.55!(reg.west)$);
+\draw[flecha] (hog.east) -- (hog.east -| bus) |- ($(reg.west)+(0,-8mm)$);
+\draw[flecha] (hog.east -| bus) |- ($(clf.west)+(0,-12mm)$);
+\node[etiqueta, above] at ($(hog.east)!0.55!(hog.east -| bus)$) {base por hogar};
+% Modelos por hogar -> combinación
+\draw[flecha] (clf.east) -- (comb.north west);
+\draw[flecha] (reg.east) -- (comb.south west);
+
+% Notas
+\node[nota, below=6mm of hog] {Evaluación: 5 folds por hogar (los del
+  equipo), $F_1$ por hogar. Las variables que usan \texttt{pobre} o el
+  ingreso se estiman sin ver el fold que se evalúa.};
+\end{tikzpicture}}
+\caption{Estructura del modelo final. Los modelos auxiliares por persona
+  predicen el ingreso y la pobreza de cada miembro (con validación cruzada
+  anidada); sus predicciones se resumen por hogar y, junto con la base por
+  hogar, alimentan un clasificador y una regresión XGBoost, cuyas
+  probabilidades se combinan.}
+\label{fig:estructura}
+\end{figure}
+
+El modelo final tiene tres niveles (Figura~\ref{fig:estructura}). Primero,
+modelos XGBoost por persona predicen el ingreso de cada miembro del hogar (en
+cinco versiones, la mejor con pérdida Tweedie) y su probabilidad de ser pobre
+o de estar por debajo de 0,8 y 1,25 veces la línea; como usan el ingreso o
+\texttt{pobre}, se estiman con validación cruzada anidada. Segundo, esas
+predicciones se resumen por hogar, incluida la suma del ingreso predicho y el
+arriendo imputado por persona sobre la línea, que reproduce la definición de
+pobreza del DANE. Tercero, un clasificador XGBoost y una regresión XGBoost del
+ingreso, ambos por hogar, usan esos resúmenes junto con la base por hogar, y
+sus probabilidades se promedian (70/30) con un umbral de 0,39. La regresión
+usa solo las primeras versiones del ingreso predicho (V4, V4t y V4e, que
+concentran el 60\% de su ganancia): se armó antes de que existieran la
+versión afinada y la Tweedie, y con ellas combina igual.
 
 \subsection{Cómo replicarlos}
 
@@ -417,59 +604,247 @@ Desde la raíz del repositorio:
   \item \textbf{XGBoost por hogar:} primero
     \texttt{Rscript output/pruebas/hogar/01b\_bases\_hogar\_main.r} (crea
     \texttt{data/train\_hogar.rds} y \texttt{data/test\_hogar.rds}) y después
-    \texttt{Rscript script/05b\_xgboost\_hogar.r}. Cada prueba se guarda en
-    \texttt{output/pruebas/xgb\_hogar/}, así que volver a correrlo solo estima lo
-    que falte; la sección 6 guarda la submission.
+    \texttt{Rscript script/05b\_xgboost\_hogar.r} (categóricas nativas por
+    defecto). Cada prueba se guarda en \texttt{output/pruebas/xgb\_hogar\_nativo/},
+    así que volver a correrlo solo estima lo que falte; la sección 6 guarda
+    las submissions. Para la combinación con el logit del equipo (sección 13),
+    antes \texttt{Rscript output/pruebas/logit/06\_logit\_interacciones\_main.r}.
+  \item \textbf{Comparación y equidad:} \texttt{Rscript
+    script/06\_comparacion\_modelos.r} (después de 05b y del logit). Crea los
+    Cuadros~\ref{tab:modelos_f1}, \ref{tab:equidad_mejor} y
+    \ref{tab:equidad_brechas} y la Figura~\ref{fig:equidad}. Las tablas de
+    importancia por permutación las crea la sección 14 de 05b.
 \end{enumerate}
 
 \subsection{Importancia de las variables}
 
-Para medir qué variables son más relevantes se estimó un CART con todas las
-variables disponibles (una versión por concepto), 66 interacciones entre las
-numéricas centrales y algunas razones (146 columnas), con la base aumentada y
-un grid search de \texttt{cp}, \texttt{minbucket}, criterio de partición,
-\texttt{maxdepth}, \texttt{maxsurrogate} y umbral (código en
-\texttt{output/pruebas/todas/}). El mejor modelo (\texttt{minbucket} = 100,
-entropía, \texttt{maxdepth} = 15, 5 cortes sustitutos, umbral 0,70) tiene un
-$F_1$ de 0,670, igual al CART con 16 variables.
-Un CART solo con las seis variables y las tres interacciones más importantes
-del Cuadro~\ref{tab:importancia}, con la misma grilla, llega a un $F_1$ de
-0,641 (código en \texttt{output/pruebas/top9/}): las demás variables sí
-aportan.
+La importancia de las variables del mejor modelo (XGBoost por hogar con
+Tweedie, combinado con la regresión del ingreso; $F_1$ 0,778) se mide con
+pruebas de permutación (sección 14 de \texttt{05b\_xgboost\_hogar.r}). En cada
+fold se vuelven a estimar el clasificador y la regresión con los otros cuatro,
+con los mismos hiperparámetros y número de árboles (se verificó que
+reproducen exactamente las predicciones fuera de muestra), se permutan al azar
+los valores de una variable entre los hogares del fold de validación y se
+mide cuánto cae el $F_1$ con el umbral de la combinación (0,39). Esa caída es
+la importancia: lo que el modelo pierde cuando la variable deja de tener
+relación con la pobreza. Se promedia sobre los 5 folds y 3 permutaciones. A
+diferencia de la ganancia de los árboles, que mide cuánto se usa una variable
+al entrenar, la permutación mide cuánto depende de ella la predicción fuera
+de muestra.
 
-El Cuadro~\ref{tab:importancia} muestra la importancia por reducción de la
-impureza, normalizada para que sume 100. La importancia de cada interacción
-se reparte por partes iguales entre las variables que la forman. La columna
-``rpart'' suma los cortes principales y los sustitutos; ``cortes
-principales'' cuenta solo los cortes que el árbol usa.
+Las variables muy correlacionadas se reemplazan entre sí: si se permuta una
+de las cinco versiones del ingreso predicho, las otras cuatro compensan, y
+cada una parece poco importante. Por eso el Cuadro~\ref{tab:importancia_grupos}
+permuta también grupos completos de variables, con la misma permutación para
+todas sus columnas.
 
-\begin{table}[H]
+\input{../output/tables/importancia_grupos.tex}
+
+El ingreso predicho por persona es, de lejos, lo más importante: al
+permutarlo, el $F_1$ cae 0,42 (de 0,778 a 0,35). Le siguen las probabilidades
+de que el ingreso del hogar esté por debajo de 0,8 y 1,25 veces la línea
+(0,061) y la probabilidad de ser pobre por persona (0,044). Los 89 agregados
+de la base por hogar juntos solo restan 0,010, y la ubicación y la tasa de
+pobreza del oficio casi nada: su información ya está contenida en los modelos
+por persona, que los usan como variables. Las dos medidas coinciden en el
+orden general, pero la permutación le da más peso al ingreso predicho y a los
+cortes de ingreso que la ganancia.
+
+\input{../output/tables/importancia_variables.tex}
+
+Una por una (Cuadro~\ref{tab:importancia_variables}), la variable más
+importante es \texttt{ing\_arr\_pc\_lp\_w}: el ingreso Tweedie predicho del
+hogar más el arriendo imputado, por persona y relativo a la línea, que
+reproduce la definición de pobreza del DANE con el ingreso de las personas
+predicho. Permutarla resta 0,043 al $F_1$ aunque las demás versiones del
+ingreso sigan en el modelo. La siguen el ingreso predicho con las preguntas
+que antes no se usaban (versiones e y f), el mínimo de la probabilidad de
+ser pobre entre los miembros del hogar y la tenencia de la vivienda. De las
+163 variables, 21 tienen una importancia nula o negativa: el modelo no
+perdería nada sin ellas.
+
+\input{../output/tables/importancia_directas.tex}
+
+Entre las variables que no salen de un modelo (Cuadro~\ref{tab:importancia_directas}),
+las que más aportan describen la vivienda y el empleo del hogar: la tenencia
+de la vivienda (que define si el hogar recibe arriendo imputado), los cuartos
+por persona, la ciudad, las primas, subsidios y bonificaciones de los
+miembros, la educación de los adultos combinada con cuántos trabajan, el
+arriendo relativo al de su ciudad y el oficio del jefe. Todas aportan poco
+por separado (menos de 0,004 de $F_1$) porque su información ya entra en los
+modelos por persona, que las usan como variables: el ingreso predicho resume
+el empleo, la educación y la vivienda de cada miembro.
+
+Esas permutaciones subestiman la importancia de las variables de base:
+cuando se permuta, por ejemplo, la formalidad del hogar, los modelos
+auxiliares siguen viendo la formalidad de cada persona y sus predicciones no
+cambian. Para medir cuánto importa cada concepto en todo el modelo, la
+sección 15 de \texttt{05b\_xgboost\_hogar.r} permuta sus variables a la vez
+en las personas (la entrada de los modelos auxiliares) y en el hogar, vuelve
+a calcular el ingreso predicho, las probabilidades por persona y la tasa del
+oficio con los modelos de cada fold, y después la predicción final
+(Cuadro~\ref{tab:importancia_conceptos}). También separa la importancia
+directa (solo las variables del hogar) de la que pasa por los modelos
+auxiliares (solo las de las personas).
+
+\input{../output/tables/importancia_conceptos.tex}
+
+Visto así, las variables que más importan son las del trabajo: la
+formalidad, la posición ocupacional y el oficio (el $F_1$ cae 0,23), los
+ingresos no laborales (0,14), la ocupación y las horas trabajadas (0,12) y la
+búsqueda de trabajo e ingresos de los desocupados (0,07); además, la vivienda
+y el arriendo (0,12). Casi todo su efecto pasa por los modelos auxiliares:
+su importancia directa es de 0,005 o menos, salvo en la vivienda (0,037),
+que entra directamente en la variable de ingreso más arriendo imputado, y en
+el tamaño del hogar (0,035), que convierte el ingreso en ingreso por persona.
+La educación (0,021) y la salud (0,009) importan menos de lo esperado porque
+su información se repite en los conceptos del trabajo: al permutar la
+educación, el modelo la recupera de la posición ocupacional, el oficio y la
+formalidad. Las importancias no se suman entre conceptos ni entre la parte
+directa y la que pasa por los modelos, porque los conceptos están
+correlacionados y los efectos interactúan.
+
+\section{Comparación de modelos y equidad}
+\label{sec:equidad}
+
+\texttt{06\_comparacion\_modelos.r} compara el mejor modelo de cada categoría
+con la misma evaluación: los 5 folds por hogar de 05b y el $F_1$ por hogar.
+Naive Bayes, CART y XGBoost por persona se volvieron a estimar con esos folds
+y su mejor configuración (en sus scripts usaron 10 folds); el $F_1$ casi no
+cambia (Cuadro~\ref{tab:modelos_f1}). Las categorías se ordenan solas por
+información usada: los modelos por persona (0,67--0,71), el logit y el
+XGBoost con solo la base por hogar (0,745--0,753), y los modelos por hogar
+con las variables de la validación cruzada anidada (0,774--0,778).
+
+\input{../output/tables/modelos_f1.tex}
+
+Para saber si los modelos generan desigualdades, el script calcula, con las
+predicciones fuera de muestra de train, el desempeño de cada modelo por grupo
+de población. En la focalización de un programa, un falso negativo es un
+hogar pobre excluido (error de exclusión) y un falso positivo, un hogar no
+pobre incluido (error de inclusión). Se reportan la sensibilidad (\% de los
+hogares pobres que el modelo detecta) y la tasa de falsos positivos (\% de los
+no pobres que predice pobres).
+
+\input{../output/tables/equidad_mejor.tex}
+
+El Cuadro~\ref{tab:equidad_mejor} muestra el patrón del mejor modelo. Los
+pobres de los grupos con poca pobreza se detectan menos: en los hogares con
+jefe formal (que cotiza a pensión), con jefe con educación superior, de una o
+dos personas o sin menores, la sensibilidad es de 65--67\%, frente a 80--89\%
+en los demás, y el modelo subestima su pobreza. Un hogar pobre con jefe formal
+o educado se parece a los no pobres, así que el modelo lo excluye con más
+frecuencia. En los grupos con mucha pobreza ocurre lo contrario: más errores
+de inclusión. En la zona rural la sensibilidad es la misma que en las
+cabeceras (80\%), pero la tasa de falsos positivos es el doble (12,6\% frente a
+6,2\%); lo mismo con jefe informal, con primaria o menos y en hogares de cinco
+o más personas. Por sexo del jefe la diferencia es pequeña y a favor de los
+hogares con jefa: se detecta el 82,7\% de los pobres, frente a 78,9\% con jefe
+hombre, con algo más de falsos positivos (7,4\% frente a 6,2\%).
+
+\begin{figure}[H]
   \centering
-  \small
-  \caption{Importancia de las variables (reducción de impureza, suma 100).}
-  \label{tab:importancia}
-  \begin{tabular}{@{}lcc@{}}
-    \toprule
-    Variable & rpart & Cortes principales \\
-    \midrule
-    \texttt{prop\_ocupados\_hogar}  & 29,5 & 21,6 \\
-    \texttt{arriendo\_pc\_sobre\_lp} & 17,5 & 15,6 \\
-    \texttt{educ\_max\_adultos}     & 10,6 & 21,4 \\
-    \texttt{linea\_pobreza}         &  9,8 &  8,7 \\
-    \texttt{cuartos\_dormir}        &  5,6 &  0,4 \\
-    \texttt{regimen\_salud}         &  4,5 & 15,2 \\
-    \texttt{anos\_educ\_imp}        &  3,9 &  0,2 \\
-    \texttt{prop\_dependientes}     &  3,5 &  0,3 \\
-    \texttt{personas\_hogar}        &  3,3 &  0,6 \\
-    \texttt{anos}                  &  2,0 &  0,9 \\
-    \texttt{tenencia\_vivienda}     &  1,6 &  5,3 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+  \includegraphics[width=\textwidth]{equidad_errores.png}
+  \caption{Sensibilidad y tasa de falsos positivos por grupo de población,
+    para el mejor modelo de cada categoría (predicciones fuera de muestra de
+    train).}
+  \label{fig:equidad}
+\end{figure}
 
-La interacción más importante es educación máxima de los adultos por
-proporción de ocupados del hogar: concentra el 40\% de la reducción de
-impureza en los cortes principales. Las interacciones y razones suman el 70\%
-de la importancia (rpart).
+\input{../output/tables/equidad_brechas.tex}
+
+Este es el patrón esperable cuando los grupos tienen tasas de pobreza muy
+distintas: con una sola regla de decisión no se pueden igualar a la vez la
+sensibilidad y la tasa de falsos positivos entre grupos. La
+Figura~\ref{fig:equidad} y el Cuadro~\ref{tab:equidad_brechas} muestran que
+los modelos más precisos reducen casi todas las brechas: la brecha de falsos
+positivos entre zonas pasa de 27,8 puntos con naive Bayes a 6,5 con el mejor
+modelo, y la de sensibilidad según el empleo del jefe, de 33,4 a 19,7. La
+excepción es el sexo del jefe: con los modelos por persona la brecha era de
+1--2 puntos y con los modelos por hogar es de unos 4, siempre a favor de los
+hogares con jefa. Si el modelo se usara para focalizar, la brecha más
+relevante es la de los hogares pobres pequeños o con jefe formal o educado,
+que serían excluidos con más frecuencia; se podría corregir con umbrales por
+grupo, a costa de más errores de inclusión.
+
+\section{Decisiones metodológicas}
+\label{sec:decisiones}
+
+\paragraph{Datos (\texttt{01\_data\_cleaning.r}).}
+\begin{itemize}
+  \item Variable objetivo: \texttt{pobre} = ingreso per cápita de la unidad de
+    gasto con arriendo imputado (\texttt{Ingpcug}) $<$ línea de pobreza; se
+    verificó en el 100\% de los hogares. Las variables que solo están en
+    train (ingresos, \texttt{Indigente}, \texttt{Npobres}\ldots) no se usan
+    como predictores.
+  \item Lectura con \texttt{guess\_max = Inf} (sin ella se pierden columnas
+    vacías en las primeras filas) y unión de personas y hogares por sus
+    columnas comunes, una a muchas.
+  \item Preguntas sí/no a 1/0; \texttt{NA} significa ``no aplica'' por los
+    saltos del cuestionario y no se reemplaza por 0 sin revisarlo
+    (excepción: \texttt{ocupado}). Montos 98/99 (no sabe / no informa) a
+    \texttt{NA}; los valores atípicos se conservan.
+  \item Categóricas con sus códigos del DANE y, además, dummies por
+    categoría. Años de educación aprobados construidos con el nivel y el
+    grado, e imputados con el promedio del nivel.
+  \item Se eliminan de train dos hogares con número de cuartos imposible;
+    de test nunca se elimina nada.
+  \item Variables nuevas del hogar: proporciones de ocupados, mujeres y
+    dependientes, tasa de dependencia, educación de los adultos,
+    coeficientes de variación, hacinamiento, arriendo per cápita sobre la
+    línea y arriendo imputado (regla del DANE reconstruida en el 98,4\% de
+    los hogares).
+  \item Bases alternativas: aumentada (hogares pobres replicados hasta
+    balancear) y sin el 10\% más rico en el entrenamiento (la validación
+    siempre con todos). Ninguna mejoró.
+\end{itemize}
+
+\paragraph{Evaluación.}
+\begin{itemize}
+  \item $F_1$ por hogar, con folds por hogar (todos los miembros en el mismo
+    fold) y el umbral escogido por validación cruzada; desde 05b, los mismos
+    5 folds del equipo, para comparar.
+  \item La probabilidad del hogar en los modelos por persona es el promedio
+    de los log odds de sus miembros (mejor que promediar probabilidades).
+  \item $F_1$ honesto (umbral escogido con los otros folds) y otras
+    particiones en folds para medir el ruido: diferencias de menos de 0,001
+    son ruido. El puntaje público de Kaggle (20\% de test) tiene una
+    desviación estándar de 0,006, así que los modelos se escogen por la
+    validación cruzada.
+\end{itemize}
+
+\paragraph{Modelos por persona (03--05).}
+\begin{itemize}
+  \item Naive Bayes: variables que no repitan información (cuenta dos veces
+    la correlacionada) y logaritmos para las asimétricas; \texttt{laplace}
+    casi no importa; sus probabilidades están descalibradas, por eso el
+    umbral es alto.
+  \item CART con caret: función de evaluación propia ($F_1$ por hogar), grilla
+    de \texttt{cp} y up-sampling solo dentro de cada fold.
+  \item XGBoost con un modelo propio para caret (el de caret no funciona con
+    xgboost 3), folds en paralelo y semilla fija.
+\end{itemize}
+
+\paragraph{XGBoost por hogar (05b).}
+\begin{itemize}
+  \item Una fila por hogar, con la base de agregados del equipo: el mayor
+    salto de todo el trabajo (0,706 a 0,753).
+  \item Variables que usan \texttt{pobre} o el ingreso (tasa de pobreza del
+    oficio, ingreso predicho por persona, probabilidad por persona) con
+    validación cruzada anidada, para que el fold evaluado nunca use su propia
+    etiqueta.
+  \item Categóricas nativas de XGBoost, no códigos enteros ni one-hot.
+    Parada temprana; \texttt{eta} 0,02; hiperparámetros con superficie plana.
+  \item Lo que más aportó: el stacking con el modelo por persona, el ingreso
+    predicho, 16 preguntas que ningún modelo usaba (pagos en especie,
+    búsqueda de trabajo, ingresos de desocupados e inactivos) y la pérdida
+    Tweedie en el modelo del ingreso.
+  \item Lo que no aportó: base aumentada o sin ricos, combinaciones no
+    lineales, logaritmos, normalización, índices, indigencia, pesos cerca de
+    la línea, modelo especialista, naive Bayes, random forest y el logit en
+    la combinación.
+  \item Submission final: combinación del mejor XGBoost con la regresión del
+    ingreso (70/30), la de mayor $F_1$ honesto.
+\end{itemize}
 
 \end{document}

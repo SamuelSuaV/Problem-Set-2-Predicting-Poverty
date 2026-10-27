@@ -1,0 +1,21 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:modelos_f1}Mejor modelo de cada categoría con la misma evaluación: 5 folds por hogar y F$_1$ por hogar. Naive Bayes, CART y XGBoost por persona se reestimaron con estos folds (en sus scripts usaron 10).}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{llllll}
+\toprule
+Categoría & Modelo & $F_1$ en su script & $F_1$ (5 folds) & $F_1$ honesto & Umbral\\
+\midrule
+CART & Por persona, x1, cp 2,5e-05, up-sampling & 0,670 & 0,6685 & 0,6679 & 0,62\\
+Naive Bayes & Por persona, 16 variables (x1), laplace 0 & 0,675 & 0,6755 & 0,6752 & 0,42\\
+XGBoost por persona & 24 variables (x3), 500 rondas & 0,706 & 0,7055 & 0,7055 & 0,32\\
+Logit lasso & Por hogar, 1.159 columnas con interacciones (main) & 0,745 & 0,7451 & 0,7449 & 0,37\\
+XGBoost por hogar & Solo la base por hogar de 01b &  & 0,7534 & 0,7532 & 0,36\\
+\addlinespace
+XGBoost por hogar & Mejor sin Tweedie, con la regresión del ingreso &  & 0,7738 & 0,7736 & 0,38\\
+Random forest & Por hogar, variables del mejor XGBoost &  & 0,7752 & 0,7750 & 0,40\\
+XGBoost por hogar & Mejor: Tweedie, con la regresión del ingreso &  & 0,7775 & 0,7775 & 0,39\\
+\bottomrule
+\end{tabular}}
+\end{table}

@@ -2202,10 +2202,10 @@ cesantías (12 meses)</td>
 <h2>Hogar y vivienda</h2>
 <table>
 <colgroup>
-<col width="7%" />
 <col width="4%" />
-<col width="55%" />
-<col width="31%" />
+<col width="5%" />
+<col width="69%" />
+<col width="20%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -2382,12 +2382,23 @@ arriendo = arriendo_pagado o, si no paga, arriendo_estimado</td>
 pobreza; NA si no hay arriendo pagado ni estimado</td>
 </tr>
 <tr class="even">
+<td align="left">arriendo_imputado</td>
+<td align="left">Creada (P5090, P5130, P5100)</td>
+<td align="left">Arriendo que el DANE imputa como ingreso a los hogares
+que no pagan arriendo (entra en Ingpcug, que define pobre):
+arriendo_estimado si la vivienda es propia pagada o en usufructo;
+arriendo_estimado - cuota_amortizacion (mínimo 0; 0 si la cuota es NA)
+si la están pagando; 0 en las demás. Coincide con el del DANE en el
+98,4% de los hogares de train</td>
+<td align="left">Pesos; 0 si no aplica</td>
+</tr>
+<tr class="odd">
 <td align="left">linea_indigencia</td>
 <td align="left">Li</td>
 <td align="left">Línea de indigencia (per cápita)</td>
 <td align="left">Pesos</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">linea_pobreza</td>
 <td align="left">Lp</td>
 <td align="left">Línea de pobreza (per cápita)</td>
@@ -2487,7 +2498,7 @@ casi determinan <code>pobre</code>; solo se deja
 </div>
 <div id="chequeo-la-guía-está-al-día" class="section level2">
 <h2>Chequeo: ¿la guía está al día?</h2>
-<pre><code>## La guía documenta las 117 variables de train_clean.</code></pre>
+<pre><code>## La guía documenta las 118 variables de train_clean.</code></pre>
 </div>
 
 

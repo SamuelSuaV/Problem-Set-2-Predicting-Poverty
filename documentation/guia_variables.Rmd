@@ -170,6 +170,7 @@ variables <- tribble(
   "Hogar y vivienda", "prop_mujer", "Creada", "Mujeres del hogar / personas_hogar", "Entre 0 y 1",
   "Hogar y vivienda", "prop_ocupados_hogar", "Creada", "Ocupados del hogar / personas_hogar", "Entre 0 y 1",
   "Hogar y vivienda", "arriendo_pc_sobre_lp", "Creada", "log(arriendo / personas_hogar / linea_pobreza); arriendo = arriendo_pagado o, si no paga, arriendo_estimado", "Numérico; 0 = arriendo per cápita igual a la línea de pobreza; NA si no hay arriendo pagado ni estimado",
+  "Hogar y vivienda", "arriendo_imputado", "Creada (P5090, P5130, P5100)", "Arriendo que el DANE imputa como ingreso a los hogares que no pagan arriendo (entra en Ingpcug, que define pobre): arriendo_estimado si la vivienda es propia pagada o en usufructo; arriendo_estimado - cuota_amortizacion (mínimo 0; 0 si la cuota es NA) si la están pagando; 0 en las demás. Coincide con el del DANE en el 98,4% de los hogares de train", "Pesos; 0 si no aplica",
   "Hogar y vivienda", "linea_indigencia", "Li", "Línea de indigencia (per cápita)", "Pesos",
   "Hogar y vivienda", "linea_pobreza", "Lp", "Línea de pobreza (per cápita)", "Pesos",
 

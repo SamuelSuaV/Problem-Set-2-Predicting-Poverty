@@ -281,6 +281,19 @@ editar <- function(df) {
       # asimetría (arriendos de hasta $600M). NA si no hay ninguno de los dos.
       arriendo_pc_sobre_lp = log(coalesce(arriendo_pagado, arriendo_estimado) /
                                    personas_hogar / linea_pobreza),
+      # Arriendo imputado por el DANE a los hogares que no pagan arriendo, que
+      # entra en el ingreso que define la pobreza: Ingpcug = (ingresos de la
+      # unidad de gasto + arriendo imputado) / personas de la unidad de gasto.
+      # Propia pagada (1) y usufructo (4): el arriendo estimado; propia
+      # pagando (2): el estimado menos la cuota (0 si da negativo o si la
+      # cuota es NA); las demás tenencias, 0. Coincide con el del DANE
+      # (Ingtotugarr - Ingtotug) en el 98,4% de los hogares de train.
+      arriendo_imputado = case_when(
+        tenencia_vivienda %in% c(1, 4) ~ coalesce(arriendo_estimado, 0),
+        tenencia_vivienda == 2 & !is.na(cuota_amortizacion) ~
+          pmax(coalesce(arriendo_estimado, 0) - cuota_amortizacion, 0),
+        .default = 0
+      ),
       # Dependientes (menores de 15 y mayores de 64, la definición estándar de
       # la tasa de dependencia) sobre el total del hogar. prop_edad_trabajar no
       # es una tasa de dependencia: edad_trabajar es 12+ en cabecera y 10+ en

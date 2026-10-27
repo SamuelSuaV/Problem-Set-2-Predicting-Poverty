@@ -1,0 +1,20 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:importancia_grupos}Importancia por permutación de grupos de variables en el mejor modelo (XGBoost con Tweedie y regresión, $F_1$ 0,778): caída del $F_1$ al permutar a la vez todas las variables del grupo entre los hogares del fold de validación (promedio de 5 folds y 3 permutaciones; D.E.: desviación estándar). Ganancia: participación del grupo en la ganancia de los árboles del clasificador.}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{lrlll}
+\toprule
+Grupo de variables & Variables & Caída del $F_1$ & D.E. & Ganancia (\%)\\
+\midrule
+Ingreso predicho por persona (todas las versiones) & 26 & 0,4232 & 0,0081 & 71,7\\
+Probabilidad de ingreso menor a 0,8 y 1,25 líneas & 8 & 0,0607 & 0,0154 & 6,5\\
+Probabilidad de ser pobre por persona (stacking) & 8 & 0,0437 & 0,0061 & 13,9\\
+Base por hogar de 01b (sin ubicación) & 89 & 0,0097 & 0,0024 & 4,0\\
+Otras construidas (expansión, mejor ocupado, productos, razones) & 24 & 0,0051 & 0,0014 & 2,8\\
+\addlinespace
+Ubicación (dominio, departamento, zona, línea) & 4 & 0,0022 & 0,0014 & 0,8\\
+Tasa de pobreza del oficio & 3 & 0,0005 & 0,0007 & 0,4\\
+\bottomrule
+\end{tabular}}
+\end{table}
