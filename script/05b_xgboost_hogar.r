@@ -88,7 +88,7 @@ codificacion <- Sys.getenv("CODIFICACION", "nativo")
 stopifnot(codificacion %in% c("codigos", "onehot", "nativo"))
 completo <- codificacion == "codigos"
 # NORMALIZAR=1: variables numéricas de la base por hogar estandarizadas con la
-# media y la desviación de train (sección 3.2). Para árboles no debería cambiar
+# media y la desviación de train (sección 3.2; se aplica en armar()). Para árboles no debería cambiar
 # nada (una transformación afín da los mismos cortes).
 normalizar <- Sys.getenv("NORMALIZAR") == "1"
 dir_out <- here("output", "pruebas", paste0(if (prueba) "xgb_hogar_prueba" else "xgb_hogar",
@@ -98,6 +98,14 @@ dir.create(dir_out, showWarnings = FALSE, recursive = TRUE)
 marca <- function(...) {
   linea <- paste(format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "-", ...)
   cat(linea, "\n"); cat(linea, "\n", file = file.path(dir_out, "progreso.log"), append = TRUE)
+}
+# lapply en `nucleos` procesos (fork) que se detiene si falla alguno; `que`
+# describe la tarea en el mensaje de error.
+en_paralelo <- function(x, f, ..., nucleos, que) {
+  res <- mclapply(x, f, ..., mc.cores = nucleos, mc.preschedule = FALSE)
+  fallas <- keep(res, ~ inherits(.x, "try-error"))
+  if (length(fallas)) stop("Falló ", que, ": ", conditionMessage(attr(fallas[[1]], "condition")))
+  res
 }
 
 ################################################################################
@@ -244,7 +252,8 @@ cols <- list(
 # además, variables del hogar; _c: ingreso laboral y no laboral por separado;
 # _e: como _t, con las preguntas que no se usaban (x_pers_extra); _f: con
 # esas preguntas, afinado.
-for (s in c("t", "h", "c", "e", "f", "w", "x")) cols[[paste0("V4", s)]] <- paste0(c(cols$V4, "ing_pred_por_ocup"), "_", s)
+sufijos_v4 <- c("t", "h", "c", "e", "f", "w", "x")
+for (s in sufijos_v4) cols[[paste0("V4", s)]] <- paste0(c(cols$V4, "ing_pred_por_ocup"), "_", s)
 # PI: probabilidad de ser indigente por persona, resumida por hogar (como P).
 cols$PI <- c("p_ind_media", "p_ind_max", "p_ind_min", "p_ind_jefe")
 # Pt, Pe: clasificador por persona afinado (Pe, con x_pers_extra). C080, C125:
@@ -334,16 +343,19 @@ for (g in names(grupos_indice)) {
 hog_tr <- hog |> filter(base == "train"); hog_te <- hog |> filter(base == "test")
 stopifnot(identical(hog_tr$id, train$id), identical(hog_te$id, test$id))
 rm(hog)
+# Normalización: media y desviación de train de las numéricas que no son
+# categóricas ni 0/1. Se aplica al final de armar() (sección 4), sobre los
+# predictores del modelo por hogar: las variables que armar() calcula
+# (ing_pred_por_ocup, ing_arr_pc_lp*, N4, T) usan los valores originales de
+# n_ocup, n_ug, log_lp, arriendo_imputado, etc.
+escala <- list()
 if (normalizar) {
-  # Numéricas que no son categóricas ni 0/1: (x - media de train) / desviación.
   numericas <- names(hog_tr)[map_lgl(hog_tr, is.numeric)] |>
     setdiff(c("id", categoricas)) |>
     keep(~ !all(hog_tr[[.x]] %in% c(0, 1, NA)))
-  for (v in numericas) {
-    m <- mean(hog_tr[[v]], na.rm = TRUE); d <- sd(hog_tr[[v]], na.rm = TRUE)
-    if (is.finite(d) && d > 0) { hog_tr[[v]] <- (hog_tr[[v]] - m) / d; hog_te[[v]] <- (hog_te[[v]] - m) / d }
-  }
-  marca("Base normalizada:", length(numericas), "variables numéricas estandarizadas")
+  escala <- map(set_names(numericas), ~ c(m = mean(hog_tr[[.x]], na.rm = TRUE), d = sd(hog_tr[[.x]], na.rm = TRUE))) |>
+    keep(~ is.finite(.x[["d"]]) && .x[["d"]] > 0)
+  marca("Base normalizada:", length(escala), "variables numéricas estandarizadas")
 }
 # Niveles de cada categórica (train y test juntos), para one-hot y nativo.
 niveles_cat <- map(set_names(categoricas), ~ sort(unique(c(hog_tr[[.x]], hog_te[[.x]]))))
@@ -489,14 +501,11 @@ if (completo) {
   rm(hog_todos)
 }
 tarea_p2 <- function(tarea) {
-  i_ent  <- which(pers$base == "train" & pers$fold %in% tarea$entren)
-  i_pred <- if (is.null(tarea$pred)) which(pers$base == "test") else which(pers$base == "train" & pers$fold %in% tarea$pred)
+  i_ent <- filas_ent(tarea); i_pred <- filas_pred(tarea)
   m <- xgb_parada(X_pers2[i_ent, ], pers$pobre[i_ent], pers$id[i_ent], params_p, tarea$semilla + 2)
   p <- predict(m, xgb.DMatrix(X_pers2[i_pred, ], missing = NA),
                iterationrange = c(1, xgb.attr(m, "best_iteration") + 1))
-  hogar <- pers[i_pred, ] |> mutate(lo = qlogis(pmin(pmax(p, 1e-6), 1 - 1e-6))) |>
-    summarize(.by = id, p2_pers_media = mean(lo), p2_pers_max = max(lo), p2_pers_min = min(lo),
-              p2_pers_jefe = if (any(jefe)) lo[jefe][1] else mean(lo))
+  hogar <- pers[i_pred, ] |> mutate(lo = qlogis(pmin(pmax(p, 1e-6), 1 - 1e-6))) |> resumir_prob("p2_pers")
   list(hogar = hogar, iter_p2 = xgb.attr(m, "best_iteration"))
 }
 
@@ -520,11 +529,7 @@ tarea_z <- function(tarea) {
 correr_tareas <- function(tarea_fun, archivo, etiqueta) {
   if (!file.exists(archivo)) {
     marca(etiqueta, ":", length(tareas), "tareas en", nucleos - 1, "procesos")
-    res <- mclapply(names(tareas), function(n) tarea_fun(tareas[[n]]),
-                    mc.cores = nucleos - 1, mc.preschedule = FALSE)
-    names(res) <- names(tareas)
-    fallas <- names(res)[map_lgl(res, ~ inherits(.x, "try-error"))]
-    if (length(fallas)) stop("Fallaron tareas ", etiqueta, ": ", paste(fallas, collapse = ", "))
+    res <- en_paralelo(tareas, tarea_fun, nucleos = nucleos - 1, que = paste("tareas", etiqueta))
     saveRDS(res, archivo)
     marca(etiqueta, "listo")
   }
@@ -581,30 +586,38 @@ r2_validacion <- function(res, sufijo = "") {
   c(r2_persona = with(p, 1 - sum((real - pred)^2) / sum((real - mean(real))^2)), r2_hogar = cor(x, z)^2)
 }
 
-# Afinamiento del ingreso predicho: solo con las 5 tareas de validación (un
-# modelo por fold) y por el R² por hogar, que es lo que usa el clasificador.
-grid_v4 <- expand_grid(hogar = c(FALSE, TRUE), max_depth = c(6, 8, 10), min_child_weight = c(20, 100))
-archivo_afinado_v4 <- file.path(dir_out, "afinado_v4.rds")
-if (!file.exists(archivo_afinado_v4)) {
-  afinado_v4 <- pmap_dfr(grid_v4, function(hogar, max_depth, min_child_weight) {
-    conf <- list(hogar = hogar, componentes = FALSE, sufijo = "",
-                 params = modifyList(params_v4, list(eta = 0.05, max_depth = max_depth, min_child_weight = min_child_weight)))
-    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_v4, conf = conf, mc.cores = nucleos - 1, mc.preschedule = FALSE)
-    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del ingreso predicho")
-    r <- r2_validacion(res)
-    marca(sprintf("Ingreso predicho: hogar = %s depth = %d mcw = %d  R2 persona = %.4f  R2 hogar = %.4f",
-                  hogar, max_depth, min_child_weight, r[["r2_persona"]], r[["r2_hogar"]]))
-    tibble(hogar = hogar, max_depth = max_depth, min_child_weight = min_child_weight,
-           r2_persona = r[["r2_persona"]], r2_hogar = r[["r2_hogar"]])
-  })
-  saveRDS(afinado_v4, archivo_afinado_v4)
+# Afinamiento de un modelo por persona (ingreso predicho o clasificador): para
+# cada fila de `grid` estima `tarea_fun` con la configuración conf_de(fila)
+# solo en las 5 tareas de validación (un modelo por fold) y calcula
+# metrica(res), un vector con nombre (R² o AUC por hogar). Guarda la tabla en
+# dir_out/<archivo> o, si ya existe, la lee.
+afinar <- function(archivo, grid, tarea_fun, metrica, que, conf_de) {
+  archivo <- file.path(dir_out, archivo)
+  conf_de <- as_mapper(conf_de); metrica <- as_mapper(metrica)
+  if (!file.exists(archivo)) {
+    tabla <- pmap_dfr(grid, function(...) {
+      fila <- list(...)
+      res <- en_paralelo(tareas[paste0("val_", 1:k)], tarea_fun, conf = conf_de(fila),
+                         nucleos = nucleos - 1, que = paste("el afinamiento:", que))
+      m <- metrica(res)
+      marca(que, ":", paste(names(fila), fila, sep = " = ", collapse = "  "), " ",
+            paste(names(m), sprintf("%.4f", m), sep = " = ", collapse = "  "))
+      as_tibble(c(fila, as.list(m)))
+    })
+    saveRDS(tabla, archivo)
+  }
+  readRDS(archivo)
 }
-afinado_v4 <- readRDS(archivo_afinado_v4)
+
+# Ingreso predicho: por el R² por hogar, que es lo que usa el clasificador.
 conf_v4 <- function(fila, componentes, sufijo) {
   list(hogar = fila$hogar, componentes = componentes, sufijo = sufijo,
        params = modifyList(params_v4, list(eta = 0.05, max_depth = fila$max_depth,
                                            min_child_weight = fila$min_child_weight)))
 }
+grid_v4 <- expand_grid(hogar = c(FALSE, TRUE), max_depth = c(6, 8, 10), min_child_weight = c(20, 100))
+afinado_v4 <- afinar("afinado_v4.rds", grid_v4, tarea_v4, r2_validacion, "Ingreso predicho",
+                     ~ conf_v4(.x, componentes = FALSE, sufijo = ""))
 mejor_v4 <- function(d) slice_max(d, r2_hogar, n = 1, with_ties = FALSE)
 confs_v4 <- list(
   t = conf_v4(mejor_v4(filter(afinado_v4, !hogar)), FALSE, "_t"),
@@ -616,69 +629,34 @@ confs_v4$e <- modifyList(confs_v4$t, list(extra = TRUE, sufijo = "_e"))
 # V4f: el ingreso predicho con x_pers_extra, afinado (V4e usa la configuración
 # de V4t, que se afinó sin esas preguntas): variables del hogar, componentes
 # y profundidad, por el R² por hogar en las 5 tareas de validación.
-grid_v4f <- expand_grid(hogar = c(FALSE, TRUE), componentes = c(FALSE, TRUE), max_depth = c(8, 10, 12))
-archivo_afinado_v4f <- file.path(dir_out, "afinado_v4f.rds")
-if (!file.exists(archivo_afinado_v4f)) {
-  afinado_v4f <- pmap_dfr(grid_v4f, function(hogar, componentes, max_depth) {
-    conf <- list(hogar = hogar, componentes = componentes, extra = TRUE, sufijo = "",
-                 params = modifyList(params_v4, list(eta = 0.05, max_depth = max_depth, min_child_weight = 20)))
-    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_v4, conf = conf, mc.cores = nucleos - 1, mc.preschedule = FALSE)
-    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del ingreso predicho V4f")
-    r <- r2_validacion(res)
-    marca(sprintf("Ingreso predicho con preguntas no usadas: hogar = %s componentes = %s depth = %d  R2 persona = %.4f  R2 hogar = %.4f",
-                  hogar, componentes, max_depth, r[["r2_persona"]], r[["r2_hogar"]]))
-    tibble(hogar = hogar, componentes = componentes, max_depth = max_depth,
-           r2_persona = r[["r2_persona"]], r2_hogar = r[["r2_hogar"]])
-  })
-  saveRDS(afinado_v4f, archivo_afinado_v4f)
+conf_v4f <- function(fila, sufijo) {
+  list(hogar = fila$hogar, componentes = fila$componentes, extra = TRUE, sufijo = sufijo,
+       params = modifyList(params_v4, list(eta = 0.05, max_depth = fila$max_depth, min_child_weight = 20)))
 }
-afinado_v4f <- readRDS(archivo_afinado_v4f)
-fila_v4f <- mejor_v4(afinado_v4f)
-confs_v4$f <- list(hogar = fila_v4f$hogar, componentes = fila_v4f$componentes, extra = TRUE, sufijo = "_f",
-                   params = modifyList(params_v4, list(eta = 0.05, max_depth = fila_v4f$max_depth, min_child_weight = 20)))
+grid_v4f <- expand_grid(hogar = c(FALSE, TRUE), componentes = c(FALSE, TRUE), max_depth = c(8, 10, 12))
+afinado_v4f <- afinar("afinado_v4f.rds", grid_v4f, tarea_v4, r2_validacion, "Ingreso predicho con preguntas no usadas",
+                      ~ conf_v4f(.x, sufijo = ""))
+confs_v4$f <- conf_v4f(mejor_v4(afinado_v4f), sufijo = "_f")
 # V4w: como V4f, con objetivo Tweedie (ver tarea_v4); se escoge la potencia
 # de la varianza (entre Poisson, 1, y gamma, 2) por el R² por hogar.
-archivo_afinado_v4w <- file.path(dir_out, "afinado_v4w.rds")
 conf_v4w <- function(potencia, componentes = confs_v4$f$componentes, sufijo = "_w") {
   modifyList(confs_v4$f, list(tweedie = TRUE, sufijo = sufijo, componentes = componentes,
                               params = modifyList(confs_v4$f$params, list(
                                 objective = "reg:tweedie", tweedie_variance_power = potencia,
                                 eval_metric = paste0("tweedie-nloglik@", potencia)))))
 }
-if (!file.exists(archivo_afinado_v4w)) {
-  afinado_v4w <- map_dfr(c(1.2, 1.5, 1.8), function(potencia) {
-    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_v4, conf = modifyList(conf_v4w(potencia), list(sufijo = "")),
-                    mc.cores = nucleos - 1, mc.preschedule = FALSE)
-    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del ingreso predicho V4w")
-    r <- r2_validacion(res)
-    marca(sprintf("Ingreso predicho Tweedie: potencia = %.1f  R2 persona = %.4f  R2 hogar = %.4f",
-                  potencia, r[["r2_persona"]], r[["r2_hogar"]]))
-    tibble(potencia = potencia, r2_persona = r[["r2_persona"]], r2_hogar = r[["r2_hogar"]])
-  })
-  saveRDS(afinado_v4w, archivo_afinado_v4w)
-}
-afinado_v4w <- readRDS(archivo_afinado_v4w)
+afinado_v4w <- afinar("afinado_v4w.rds", tibble(potencia = c(1.2, 1.5, 1.8)), tarea_v4, r2_validacion,
+                      "Ingreso predicho Tweedie", ~ conf_v4w(.x$potencia, sufijo = ""))
 confs_v4$w <- conf_v4w(slice_max(afinado_v4w, r2_hogar, n = 1, with_ties = FALSE)$potencia)
 # V4x: la mejor potencia quedó en el borde de la grilla (1.2), así que se
 # prueban potencias menores y mayores cerca de ella, por componentes (como
 # V4w) y sobre el ingreso total. Si gana la misma configuración de V4w, no
 # hay V4x.
-archivo_afinado_v4x <- file.path(dir_out, "afinado_v4x.rds")
-if (!file.exists(archivo_afinado_v4x)) {
-  grid_v4x <- expand_grid(potencia = c(1.05, 1.1, 1.2, 1.3), componentes = c(TRUE, FALSE)) |>
-    filter(!(potencia == 1.2 & componentes == confs_v4$f$componentes))   # ya está en afinado_v4w
-  afinado_v4x <- pmap_dfr(grid_v4x, function(potencia, componentes) {
-    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_v4, conf = conf_v4w(potencia, componentes, sufijo = ""),
-                    mc.cores = nucleos - 1, mc.preschedule = FALSE)
-    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del ingreso predicho V4x")
-    r <- r2_validacion(res)
-    marca(sprintf("Ingreso predicho Tweedie: potencia = %.2f componentes = %s  R2 persona = %.4f  R2 hogar = %.4f",
-                  potencia, componentes, r[["r2_persona"]], r[["r2_hogar"]]))
-    tibble(potencia = potencia, componentes = componentes, r2_persona = r[["r2_persona"]], r2_hogar = r[["r2_hogar"]])
-  })
-  saveRDS(afinado_v4x, archivo_afinado_v4x)
-}
-afinado_v4x <- bind_rows(mutate(afinado_v4w, componentes = confs_v4$f$componentes), readRDS(archivo_afinado_v4x))
+grid_v4x <- expand_grid(potencia = c(1.05, 1.1, 1.2, 1.3), componentes = c(TRUE, FALSE)) |>
+  filter(!(potencia == 1.2 & componentes == confs_v4$f$componentes))   # ya está en afinado_v4w
+afinado_v4x <- afinar("afinado_v4x.rds", grid_v4x, tarea_v4, r2_validacion, "Ingreso predicho Tweedie",
+                      ~ conf_v4w(.x$potencia, .x$componentes, sufijo = ""))
+afinado_v4x <- bind_rows(mutate(afinado_v4w, componentes = confs_v4$f$componentes), afinado_v4x)
 fila_v4x <- slice_max(afinado_v4x, r2_hogar, n = 1, with_ties = FALSE)
 if (!(fila_v4x$potencia == confs_v4$w$params$tweedie_variance_power && fila_v4x$componentes == confs_v4$w$componentes))
   confs_v4$x <- conf_v4w(fila_v4x$potencia, fila_v4x$componentes, sufijo = "_x")
@@ -717,27 +695,14 @@ auc_validacion <- function(res, prefijo) {
 # Afinamiento del clasificador por persona (P usa params_p: eta 0.1, depth 6,
 # mcw 50, sin afinar), con y sin x_pers_extra, por el AUC por hogar en las 5
 # tareas de validación.
-grid_p <- expand_grid(extra = c(FALSE, TRUE), max_depth = c(6, 8, 10), min_child_weight = c(20, 50))
-archivo_afinado_p <- file.path(dir_out, "afinado_p.rds")
-if (!file.exists(archivo_afinado_p)) {
-  afinado_p <- pmap_dfr(grid_p, function(extra, max_depth, min_child_weight) {
-    conf <- list(extra = extra, corte = 1, prefijo = "p",
-                 params = modifyList(params_p, list(eta = 0.05, max_depth = max_depth, min_child_weight = min_child_weight)))
-    res <- mclapply(tareas[paste0("val_", 1:k)], tarea_pc, conf = conf, mc.cores = nucleos - 1, mc.preschedule = FALSE)
-    if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el afinamiento del clasificador por persona")
-    a <- auc_validacion(res, "p")
-    marca(sprintf("Clasificador por persona: extra = %s depth = %d mcw = %d  AUC hogar = %.4f",
-                  extra, max_depth, min_child_weight, a))
-    tibble(extra = extra, max_depth = max_depth, min_child_weight = min_child_weight, auc_hogar = a)
-  })
-  saveRDS(afinado_p, archivo_afinado_p)
-}
-afinado_p <- readRDS(archivo_afinado_p)
 conf_p <- function(fila, corte, prefijo) {
   list(extra = fila$extra, corte = corte, prefijo = prefijo,
        params = modifyList(params_p, list(eta = 0.05, max_depth = fila$max_depth,
                                           min_child_weight = fila$min_child_weight)))
 }
+grid_p <- expand_grid(extra = c(FALSE, TRUE), max_depth = c(6, 8, 10), min_child_weight = c(20, 50))
+afinado_p <- afinar("afinado_p.rds", grid_p, tarea_pc, ~ c(auc_hogar = auc_validacion(.x, "p")),
+                    "Clasificador por persona", ~ conf_p(.x, corte = 1, prefijo = "p"))
 mejor_p <- function(d) slice_max(d, auc_hogar, n = 1, with_ties = FALSE)
 # Pt (afinado), Pe (afinado, con x_pers_extra) y cortes de 0.8 y 1.25 veces
 # la línea (C080, C125) con la mejor configuración.
@@ -819,7 +784,7 @@ marca("AUC por hogar del clasificador por persona (validación):"); print(as.dat
 # Matriz de predictores para unos hogares, con las variables por fold (V3, V4
 # y P) de `tabla` y ing_pred_por_ocup.
 armar <- function(base_hog, tabla, vars) {
-  por_fold <- unlist(cols[c("V3", "V4", "P", "P2", "Z", "V4t", "V4h", "V4c", "V4e", "V4f", "V4w", "V4x", "PI", "IS", "Pt", "Pe", "Pa", "C080", "C125")])
+  por_fold <- unlist(cols[c("V3", "V4", "P", "P2", "Z", paste0("V4", sufijos_v4), "PI", "IS", "Pt", "Pe", "Pa", "C080", "C125")])
   if (any(vars %in% c(por_fold, "ing_pred_por_ocup", cols$N4, cols$T, cols$A, "ing_arr_pc_lp_w"))) {
     base_hog <- base_hog |> select(-any_of(por_fold)) |> left_join(tabla, by = "id") |>
       mutate(
@@ -843,13 +808,14 @@ armar <- function(base_hog, tabla, vars) {
         p_pers_min_2 = p_pers_min^2, arriendo_2 = log_arriendo_pc_lp^2,
         educ_max_2 = educ_max^2, dependencia_2 = dependencia^2)
     # ing_pred_por_ocup de los ingresos predichos de 3.4.
-    for (s in intersect(c("_t", "_h", "_c", "_e", "_f", "_w", "_x"), sub("ing_pred_total", "", names(base_hog))))
+    for (s in intersect(paste0("_", sufijos_v4), sub("ing_pred_total", "", names(base_hog))))
       base_hog[[paste0("ing_pred_por_ocup", s)]] <- base_hog[[paste0("ing_pred_total", s)]] / pmax(base_hog$n_ocup, 1) / exp(base_hog$log_lp)
     # Ingreso predicho más arriendo imputado (A), como Ingpcug.
-    for (s in intersect(c("", "_t", "_h", "_c", "_e", "_f", "_w", "_x"), sub("ing_pred_total", "", names(base_hog))))
+    for (s in intersect(c("", paste0("_", sufijos_v4)), sub("ing_pred_total", "", names(base_hog))))
       base_hog[[paste0("ing_arr_pc_lp", s)]] <- log((base_hog[[paste0("ing_pred_total", s)]] + base_hog$arriendo_imputado + 1) /
                                                       base_hog$n_ug / exp(base_hog$log_lp))
   }
+  for (v in intersect(vars, names(escala))) base_hog[[v]] <- (base_hog[[v]] - escala[[v]][["m"]]) / escala[[v]][["d"]]
   codificar(base_hog[vars])
 }
 # Predictores en la codificación elegida (ver sección 1). En one-hot, las
@@ -891,6 +857,18 @@ f1_cv <- function(prob, umbrales = grid_umbral) select(evaluar_umbral(prob, y, f
 # Umbral honesto: el umbral de cada fold se escoge con los otros 4 (5.9).
 umbral_honesto <- function(prob) evaluar_umbral(prob, y, fold, grid_umbral)$f1_honesto
 
+# Datos de entrenamiento de un modelo por hogar con los hogares `filas` de
+# train (X: sus predictores): etiqueta pobre (o z si `regresion`), peso de la
+# base aumentada por `pesos` y, con base "sin_ricos", sin los hogares ricos.
+dmatrix_ent <- function(X, filas, base, pesos = NULL, regresion = FALSE) {
+  peso <- if (base == "aumentada") ifelse(y == 1, sum(y == 0) / sum(y == 1), 1) else rep(1, length(y))
+  if (!is.null(pesos)) peso <- peso * pesos
+  usar <- if (base == "sin_ricos") train$hogar_rico == 0 else rep(TRUE, length(y))
+  ent <- usar[filas]
+  xgb.DMatrix(X[ent, , drop = FALSE], label = (if (regresion) z else y)[filas][ent],
+              weight = peso[filas][ent], missing = NA)
+}
+
 # Validación cruzada de XGBoost a nivel hogar. Predicción fuera de muestra
 # (OOF) de cada hogar con parada temprana en su fold. Los folds corren en
 # paralelo. Guarda el resultado en dir_out/<nombre>.rds y, si ya existe, lo lee.
@@ -905,23 +883,16 @@ cv_hogar <- function(nombre, vars, base = "normal", params = params_base, regres
   if (file.exists(archivo)) return(invisible(readRDS(archivo)))
   t0 <- Sys.time()
   if (regresion) params <- modifyList(params, list(objective = "reg:squarederror", eval_metric = "rmse"))
-  etiqueta <- if (regresion) z else y
-  peso <- if (base == "aumentada") ifelse(y == 1, sum(y == 0) / sum(y == 1), 1) else rep(1, length(y))
-  if (!is.null(pesos)) peso <- peso * pesos
-  usar <- if (base == "sin_ricos") train$hogar_rico == 0 else rep(TRUE, length(y))
-  res_folds <- mclapply(1:k, function(f) {
+  res_folds <- en_paralelo(1:k, function(f) {
     m <- matrices(f, vars)
-    ent <- usar[m$i_ent]
-    dtr <- xgb.DMatrix(m$X_ent[ent, , drop = FALSE], label = etiqueta[m$i_ent][ent],
-                       weight = peso[m$i_ent][ent], missing = NA)
-    dva <- xgb.DMatrix(m$X_val, label = etiqueta[m$i_val], missing = NA)
+    dtr <- dmatrix_ent(m$X_ent, m$i_ent, base, pesos, regresion)
+    dva <- xgb.DMatrix(m$X_val, label = (if (regresion) z else y)[m$i_val], missing = NA)
     b <- xgb.train(params = params, data = dtr, nrounds = nrounds, evals = list(val = dva),
                    early_stopping_rounds = parada, verbose = 0)
     it <- xgb.attr(b, "best_iteration")
     list(i_val = m$i_val, pred = predict(b, dva, iterationrange = c(1, it + 1)), iter = it,
          ganancia = xgb.importance(model = b))
-  }, mc.cores = min(nucleos, k), mc.preschedule = FALSE)
-  if (any(map_lgl(res_folds, ~ inherits(.x, "try-error")))) stop("Falló un fold en ", nombre)
+  }, nucleos = min(nucleos, k), que = paste("un fold en", nombre))
   oof <- rep(NA_real_, length(y))
   for (r in res_folds) oof[r$i_val] <- r$pred
   prob <- oof
@@ -970,17 +941,27 @@ combinar <- function(a, b, pesos = seq(0, 1, by = 0.1)) {
 # La mejor prueba (mayor F1) de una lista de resultados de cv_hogar().
 mejor_de <- function(lista) lista[[which.max(map_dbl(lista, "f1"))]]
 
+# Tabla de resumen de pruebas de cv_hogar(), con las de `refs` (modelos de
+# referencia) primero. Con `nuevas`, también el % de la ganancia que se llevan
+# esas variables (NA en las de referencia).
+tabla_pruebas <- function(pruebas, refs = list(), nuevas = NULL) {
+  todas <- c(refs, pruebas)
+  t <- tibble(prueba = map_chr(todas, "nombre"), variables = map_int(todas, ~ length(.x$vars)),
+              f1 = map_dbl(todas, "f1"), f1_honesto = map_dbl(todas, ~ umbral_honesto(.x$prob)),
+              umbral = map_dbl(todas, "umbral"))
+  if (!is.null(nuevas))
+    t$ganancia_nuevas <- c(rep(NA, length(refs)),
+                           map_dbl(pruebas, ~ sum(.x$importancia$importancia[.x$importancia$variable %in% nuevas])))
+  t
+}
+
 # Modelo final con todo train (nrounds = media de las mejores iteraciones de
 # los folds × 1,1, como 07 de main) y probabilidad en test.
 prob_test <- function(res) {
   tabla_te <- tabla_tarea("test")
   X_ent <- armar(hog_tr, bind_rows(map(1:k, ~ tabla_tarea(paste0("val_", .x)))), res$vars)
   X_te  <- armar(hog_te, tabla_te, res$vars)
-  etiqueta <- if (res$regresion) z else y
-  peso <- if (res$base == "aumentada") ifelse(y == 1, sum(y == 0) / sum(y == 1), 1) else rep(1, length(y))
-  if (!is.null(res$pesos)) peso <- peso * res$pesos
-  usar <- if (res$base == "sin_ricos") train$hogar_rico == 0 else rep(TRUE, length(y))
-  dtr <- xgb.DMatrix(X_ent[usar, , drop = FALSE], label = etiqueta[usar], weight = peso[usar], missing = NA)
+  dtr <- dmatrix_ent(X_ent, seq_along(y), res$base, res$pesos, res$regresion)
   params <- modifyList(res$params, list(nthread = 1))
   b <- xgb.train(params = params, data = dtr, nrounds = round(mean(res$iters) * 1.1), verbose = 0)
   # Las variables por fold de train salen de las tareas de validación (fuera de
@@ -1168,11 +1149,7 @@ E <- imap(cortes_sel, function(n, nm) {
   cv_hogar(sprintf("E_%s_%dvars", nm, n), head(imp_mejor$variable, n), base = mejor_clf$base,
            params = mejor_clf$params, nrounds = mejor_clf$nrounds %||% nrounds_max)
 })
-seleccion <- tibble(prueba = map_chr(E, "nombre"), variables = map_int(E, ~ length(.x$vars)),
-                    f1 = map_dbl(E, "f1"), f1_honesto = map_dbl(E, ~ umbral_honesto(.x$prob)),
-                    umbral = map_dbl(E, "umbral")) |>
-  add_row(prueba = mejor_clf$nombre, variables = length(mejor_clf$vars), f1 = mejor_clf$f1,
-          f1_honesto = umbral_honesto(mejor_clf$prob), umbral = mejor_clf$umbral, .before = 1)
+seleccion <- tabla_pruebas(E, refs = list(mejor_clf))
 saveRDS(seleccion, file.path(dir_out, "seleccion.rds"))
 marca("Eliminación de variables poco importantes:"); print(as.data.frame(seleccion), digits = 4)
 
@@ -1192,12 +1169,7 @@ Z <- list(
   H11 = cv_hogar(paste0(mejor_e$nombre, "_mas_z"), c(mejor_e$vars, cols$Z), base = mejor_clf$base,
                  params = mejor_clf$params, nrounds = mejor_clf$nrounds %||% nrounds_max)
 )
-stack_z <- tibble(prueba = c(mejor_clf$nombre, mejor_e$nombre, map_chr(Z, "nombre")),
-                  variables = c(length(mejor_clf$vars), length(mejor_e$vars), map_int(Z, ~ length(.x$vars))),
-                  f1 = c(mejor_clf$f1, mejor_e$f1, map_dbl(Z, "f1")),
-                  f1_honesto = c(umbral_honesto(mejor_clf$prob), umbral_honesto(mejor_e$prob),
-                                 map_dbl(Z, ~ umbral_honesto(.x$prob))),
-                  importancia_z = c(NA, NA, map_dbl(Z, ~ sum(.x$importancia$importancia[.x$importancia$variable == "z_pred"]))))
+stack_z <- tabla_pruebas(Z, refs = list(mejor_clf, mejor_e), nuevas = cols$Z) |> rename(importancia_z = ganancia_nuevas)
 saveRDS(stack_z, file.path(dir_out, "stacking_z.rds"))
 marca("Stacking de la regresión:"); print(as.data.frame(stack_z), digits = 4)
 }
@@ -1216,12 +1188,7 @@ NL <- list(
   NL4 = cv_hogar(paste0(mejor_clf$nombre, "_N4_T"), c(mejor_clf$vars, cols$N4, cols$T), base = mejor_clf$base,
                  params = mejor_clf$params, nrounds = mejor_clf$nrounds %||% nrounds_max)
 )
-no_lineales <- tibble(prueba = c(mejor_e$nombre, mejor_clf$nombre, map_chr(NL, "nombre")),
-                      variables = c(length(mejor_e$vars), length(mejor_clf$vars), map_int(NL, ~ length(.x$vars))),
-                      f1 = c(mejor_e$f1, mejor_clf$f1, map_dbl(NL, "f1")),
-                      f1_honesto = c(umbral_honesto(mejor_e$prob), umbral_honesto(mejor_clf$prob),
-                                     map_dbl(NL, ~ umbral_honesto(.x$prob))),
-                      ganancia_nuevas = c(NA, NA, map_dbl(NL, ~ sum(.x$importancia$importancia[.x$importancia$variable %in% c(cols$N4, cols$T)]))))
+no_lineales <- tabla_pruebas(NL, refs = list(mejor_e, mejor_clf), nuevas = c(cols$N4, cols$T))
 saveRDS(no_lineales, file.path(dir_out, "no_lineales.rds"))
 marca("Combinaciones no lineales y transformaciones:"); print(as.data.frame(no_lineales), digits = 4)
 mejor_nl <- mejor_de(NL)
@@ -1261,9 +1228,10 @@ marca("Afinamiento con pocas variables (mejor de cada una):"); print(as.data.fra
 # (5.14), donde un resumen de muchas variables debería notarse más.
 ref   <- mejor_clf
 ref20 <- mejor_de(keep(F_pocas, ~ length(.x$vars) == 20))
-variante <- function(r, sufijo, vars, ...) {
+# Prueba con la base, los hiperparámetros, las rondas y los pesos de `r`.
+variante <- function(r, sufijo, vars, pesos = r$pesos) {
   cv_hogar(paste0(r$nombre, "_", sufijo), vars, base = r$base, params = r$params,
-           nrounds = r$nrounds %||% nrounds_max, ...)
+           nrounds = r$nrounds %||% nrounds_max, pesos = pesos)
 }
 con_v4 <- function(vars, s) c(setdiff(vars, c(cols$V4, "ing_pred_por_ocup")), cols[[paste0("V4", s)]])
 
@@ -1288,13 +1256,7 @@ todo <- list(todo = variante(ref, "todo", unique(c(vars_m, cols$PI, cols$I, cols
 
 nuevas <- c(cols$V4t, cols$V4h, cols$V4c, cols$PI, cols$I, cols$IS)
 pruebas_nuevas <- c(M, PI, I, todo)
-mejoras <- tibble(prueba = map_chr(pruebas_nuevas, "nombre"), variables = map_int(pruebas_nuevas, ~ length(.x$vars)),
-                  f1 = map_dbl(pruebas_nuevas, "f1"), f1_honesto = map_dbl(pruebas_nuevas, ~ umbral_honesto(.x$prob)),
-                  umbral = map_dbl(pruebas_nuevas, "umbral"),
-                  ganancia_nuevas = map_dbl(pruebas_nuevas, ~ sum(.x$importancia$importancia[.x$importancia$variable %in% nuevas]))) |>
-  add_row(prueba = c(ref$nombre, ref20$nombre), variables = c(length(ref$vars), length(ref20$vars)),
-          f1 = c(ref$f1, ref20$f1), f1_honesto = c(umbral_honesto(ref$prob), umbral_honesto(ref20$prob)),
-          umbral = c(ref$umbral, ref20$umbral), .before = 1)
+mejoras <- tabla_pruebas(pruebas_nuevas, refs = list(ref, ref20), nuevas = nuevas)
 saveRDS(list(mejoras = mejoras, r2_ingreso = r2_ingreso, afinado_v4 = afinado_v4), file.path(dir_out, "mejoras.rds"))
 marca("Ingreso mejorado, indigencia e índices:"); print(as.data.frame(mejoras), digits = 4)
 mejor_nuevo <- mejor_de(pruebas_nuevas)
@@ -1314,12 +1276,7 @@ Q <- list(
 p_mejor <- if (Q$Pe$f1 > Q$Pt$f1) cols$Pe else cols$Pt
 Q$todo <- variante(ref2, "todo2", c(ref2$vars, p_mejor, cols$V4e, cols$C080, cols$C125))
 nuevas2 <- c(cols$Pt, cols$Pe, cols$V4e, cols$C080, cols$C125)
-mejoras2 <- tibble(prueba = map_chr(Q, "nombre"), variables = map_int(Q, ~ length(.x$vars)),
-                   f1 = map_dbl(Q, "f1"), f1_honesto = map_dbl(Q, ~ umbral_honesto(.x$prob)),
-                   umbral = map_dbl(Q, "umbral"),
-                   ganancia_nuevas = map_dbl(Q, ~ sum(.x$importancia$importancia[.x$importancia$variable %in% nuevas2]))) |>
-  add_row(prueba = ref2$nombre, variables = length(ref2$vars), f1 = ref2$f1,
-          f1_honesto = umbral_honesto(ref2$prob), umbral = ref2$umbral, .before = 1)
+mejoras2 <- tabla_pruebas(Q, refs = list(ref2), nuevas = nuevas2)
 saveRDS(list(mejoras = mejoras2, afinado_p = afinado_p, auc_persona = auc_persona), file.path(dir_out, "mejoras2.rds"))
 marca("Clasificador por persona afinado, preguntas no usadas y cortes:"); print(as.data.frame(mejoras2), digits = 4)
 pruebas_nuevas <- c(pruebas_nuevas, Q)
@@ -1368,8 +1325,8 @@ marca("Pesos cerca de la línea y regresión:"); print(as.data.frame(mejoras3), 
 # V4e y junto a V4e.
 ref4 <- mejor_nuevo
 V4F <- list(
-  V4f     = variante(ref4, "V4f", c(setdiff(ref4$vars, cols$V4e), cols$V4f), pesos = ref4$pesos),
-  mas_V4f = variante(ref4, "mas_V4f", c(ref4$vars, cols$V4f), pesos = ref4$pesos)
+  V4f     = variante(ref4, "V4f", c(setdiff(ref4$vars, cols$V4e), cols$V4f)),
+  mas_V4f = variante(ref4, "mas_V4f", c(ref4$vars, cols$V4f))
 )
 pruebas_nuevas <- c(pruebas_nuevas, V4F)
 mejor_nuevo <- mejor_de(pruebas_nuevas)
@@ -1389,19 +1346,15 @@ mejor_nuevo <- mejor_de(pruebas_nuevas)
 
 # 5.23 Selección de variables por ganancia en el mejor modelo nuevo.
 ref6 <- mejor_nuevo
-S2 <- map(c(50, 75, 100), function(n) {
-  cv_hogar(sprintf("%s_top%d", ref6$nombre, n), head(ref6$importancia$variable, n), base = ref6$base,
-           params = ref6$params, nrounds = ref6$nrounds %||% nrounds_max, pesos = ref6$pesos)
-})
+S2 <- map(c(50, 75, 100), ~ variante(ref6, paste0("top", .x), head(ref6$importancia$variable, .x)))
 pruebas_nuevas <- c(pruebas_nuevas, S2)
 mejor_nuevo <- mejor_de(pruebas_nuevas)
 pruebas4 <- c(list(ref4), V4F, AF, S2)
-mejoras4 <- tibble(prueba = map_chr(pruebas4, "nombre"), variables = map_int(pruebas4, ~ length(.x$vars)),
-                   max_depth = map_dbl(pruebas4, ~ .x$params$max_depth),
-                   min_child_weight = map_dbl(pruebas4, ~ .x$params$min_child_weight),
-                   colsample = map_dbl(pruebas4, ~ .x$params$colsample_bytree),
-                   f1 = map_dbl(pruebas4, "f1"), f1_honesto = map_dbl(pruebas4, ~ umbral_honesto(.x$prob)),
-                   umbral = map_dbl(pruebas4, "umbral"), iter = map_dbl(pruebas4, ~ mean(.x$iters)))
+mejoras4 <- tabla_pruebas(pruebas4) |>
+  mutate(max_depth = map_dbl(pruebas4, ~ .x$params$max_depth),
+         min_child_weight = map_dbl(pruebas4, ~ .x$params$min_child_weight),
+         colsample = map_dbl(pruebas4, ~ .x$params$colsample_bytree), .after = variables) |>
+  mutate(iter = map_dbl(pruebas4, ~ mean(.x$iters)))
 saveRDS(list(mejoras = mejoras4, afinado_v4f = afinado_v4f, r2_ingreso = r2_ingreso), file.path(dir_out, "mejoras4.rds"))
 marca("Ingreso V4f, hiperparámetros y selección con el modelo nuevo:"); print(as.data.frame(mejoras4), digits = 4)
 
@@ -1412,19 +1365,13 @@ marca("Ingreso V4f, hiperparámetros y selección con el modelo nuevo:"); print(
 # con lo que estima un propietario); A les da la suma hecha.
 ref7 <- mejor_nuevo
 AW <- list(
-  A   = variante(ref7, "A", c(ref7$vars, cols$A), pesos = ref7$pesos),
-  Pa  = variante(ref7, "Pa", c(ref7$vars, cols$Pa), pesos = ref7$pesos),
-  V4w = variante(ref7, "V4w", c(ref7$vars, cols$V4w, "ing_arr_pc_lp_w"), pesos = ref7$pesos)
+  A   = variante(ref7, "A", c(ref7$vars, cols$A)),
+  Pa  = variante(ref7, "Pa", c(ref7$vars, cols$Pa)),
+  V4w = variante(ref7, "V4w", c(ref7$vars, cols$V4w, "ing_arr_pc_lp_w"))
 )
-AW$todo3 <- variante(ref7, "todo3", unique(c(ref7$vars, cols$A, cols$Pa, cols$V4w, "ing_arr_pc_lp_w")),
-                     pesos = ref7$pesos)
+AW$todo3 <- variante(ref7, "todo3", unique(c(ref7$vars, cols$A, cols$Pa, cols$V4w, "ing_arr_pc_lp_w")))
 nuevas5 <- c(cols$A, cols$Pa, cols$V4w, "ing_arr_pc_lp_w")
-mejoras5 <- tibble(prueba = map_chr(c(list(ref7), AW), "nombre"),
-                   variables = map_int(c(list(ref7), AW), ~ length(.x$vars)),
-                   f1 = map_dbl(c(list(ref7), AW), "f1"),
-                   f1_honesto = map_dbl(c(list(ref7), AW), ~ umbral_honesto(.x$prob)),
-                   umbral = map_dbl(c(list(ref7), AW), "umbral"),
-                   ganancia_nuevas = map_dbl(c(list(ref7), AW), ~ sum(.x$importancia$importancia[.x$importancia$variable %in% nuevas5])))
+mejoras5 <- tabla_pruebas(c(list(ref7), AW), nuevas = nuevas5)
 saveRDS(list(mejoras = mejoras5, afinado_v4w = afinado_v4w, r2_ingreso = r2_ingreso, auc_persona = auc_persona),
         file.path(dir_out, "mejoras5.rds"))
 marca("Arriendo imputado e ingreso Tweedie:"); print(as.data.frame(mejoras5), digits = 4)
@@ -1438,8 +1385,8 @@ ref8 <- mejor_nuevo
 X4 <- list()
 if (!is.null(confs_v4$x) && any(ref8$vars %in% cols$V4w)) {
   X4 <- list(
-    V4x     = variante(ref8, "V4x", c(setdiff(ref8$vars, c(cols$V4w, "ing_arr_pc_lp_w")), cols$V4x), pesos = ref8$pesos),
-    mas_V4x = variante(ref8, "mas_V4x", c(ref8$vars, cols$V4x), pesos = ref8$pesos)
+    V4x     = variante(ref8, "V4x", c(setdiff(ref8$vars, c(cols$V4w, "ing_arr_pc_lp_w")), cols$V4x)),
+    mas_V4x = variante(ref8, "mas_V4x", c(ref8$vars, cols$V4x))
   )
   pruebas_nuevas <- c(pruebas_nuevas, X4)
   mejor_nuevo <- mejor_de(pruebas_nuevas)
@@ -1570,10 +1517,10 @@ if (!file.exists(archivo_nb03)) {
     p <- pmin(pmax(predict(modelo, X, type = "raw")[, "1"], 1e-6), 1 - 1e-6)
     tibble(id = ids, lo = qlogis(p)) |> summarize(lo = mean(lo), .by = id)
   }
-  oof_nb <- bind_rows(mclapply(1:k, function(f) {
+  oof_nb <- bind_rows(en_paralelo(1:k, function(f) {
     m <- naiveBayes(X_tr[fold_p != f, ], y_p[fold_p != f], laplace = 0)
     lo_hogar(m, X_tr[fold_p == f, ], p_tr$id[fold_p == f])
-  }, mc.cores = min(nucleos, k)))
+  }, nucleos = min(nucleos, k), que = "naive bayes de 03"))
   lo_nb <- oof_nb$lo[match(train$id, oof_nb$id)]
   lo_nb_te <- lo_hogar(naiveBayes(X_tr, y_p, laplace = 0), X_te, p_te$id)
   saveRDS(list(lo = lo_nb, lo_test = lo_nb_te$lo[match(test$id, lo_nb_te$id)]), archivo_nb03)
@@ -1762,7 +1709,7 @@ cv_especialista <- function(nombre, rango) {
   archivo <- file.path(dir_out, paste0(nombre, ".rds"))
   if (file.exists(archivo)) return(readRDS(archivo))
   dudoso <- p1 >= rango[1] & p1 <= rango[2]
-  res <- mclapply(1:k, function(f) {
+  res <- en_paralelo(1:k, function(f) {
     m <- matrices(f, mejor_nuevo$vars)
     ent <- m$i_ent[dudoso[m$i_ent]]; val <- m$i_val[dudoso[m$i_val]]
     dtr <- xgb.DMatrix(con_p1(m$X_ent[dudoso[m$i_ent], , drop = FALSE], p1[ent]), label = y[ent], missing = NA)
@@ -1771,8 +1718,7 @@ cv_especialista <- function(nombre, rango) {
                    early_stopping_rounds = parada, verbose = 0)
     it <- xgb.attr(b, "best_iteration")
     list(i = val, pred = predict(b, dva, iterationrange = c(1, it + 1)), iter = it)
-  }, mc.cores = min(nucleos, k), mc.preschedule = FALSE)
-  if (any(map_lgl(res, ~ inherits(.x, "try-error")))) stop("Falló el especialista ", nombre)
+  }, nucleos = min(nucleos, k), que = paste("el especialista", nombre))
   esp <- rep(NA_real_, length(y))
   for (r in res) esp[r$i] <- r$pred
   probs <- list(reemplazo = if_else(dudoso, esp, p1), promedio = if_else(dudoso, (esp + p1) / 2, p1))
@@ -1916,7 +1862,7 @@ if (file.exists(archivo_logit)) {
 ubicacion <- c("dominio", "depto", "cabecera", "log_lp")
 grupos_imp <- list(
   "Ingreso predicho por persona (todas las versiones)" =
-    c(cols$V4, "ing_pred_por_ocup", cols$V4t, cols$V4h, cols$V4c, cols$V4e, cols$V4f, cols$V4w, cols$V4x,
+    c(cols$V4, "ing_pred_por_ocup", unlist(cols[paste0("V4", sufijos_v4)]),
       setdiff(cols$A, "arr_imp_pc_lp"), "ing_arr_pc_lp_w"),
   "Probabilidad de ser pobre por persona (stacking)" = c(cols$P, cols$Pt, cols$Pe, cols$Pa),
   "Probabilidad de ingreso menor a 0,8 y 1,25 líneas" = c(cols$C080, cols$C125),
@@ -1933,13 +1879,7 @@ archivo_perm <- file.path(dir_out, paste0("importancia_permutacion_", mejor_nuev
 # Modelo de `res` estimado sin el fold f (como en cv_hogar(); también en 15).
 modelo_fold <- function(res, f) {
   m <- matrices(f, res$vars)
-  etiqueta <- if (res$regresion) z else y
-  peso <- if (res$base == "aumentada") ifelse(y == 1, sum(y == 0) / sum(y == 1), 1) else rep(1, length(y))
-  if (!is.null(res$pesos)) peso <- peso * res$pesos
-  usar <- if (res$base == "sin_ricos") train$hogar_rico == 0 else rep(TRUE, length(y))
-  ent <- usar[m$i_ent]
-  dtr <- xgb.DMatrix(m$X_ent[ent, , drop = FALSE], label = etiqueta[m$i_ent][ent],
-                     weight = peso[m$i_ent][ent], missing = NA)
+  dtr <- dmatrix_ent(m$X_ent, m$i_ent, res$base, res$pesos, res$regresion)
   list(b = xgb.train(params = res$params, data = dtr, nrounds = res$iters[f] + 1, verbose = 0),
        X_val = m$X_val, i_val = m$i_val, rango = c(1, res$iters[f] + 1))
 }
@@ -1953,7 +1893,7 @@ permutar <- function(X, columnas, perm) {
 if (!file.exists(archivo_perm)) {
   conjuntos <- c(as.list(set_names(mejor_nuevo$vars)), grupos_imp)
   t0 <- Sys.time()
-  res_perm <- mclapply(1:k, function(f) {
+  res_perm <- en_paralelo(1:k, function(f) {
     mc <- modelo_fold(mejor_nuevo, f); mr <- modelo_fold(reg_comb, f)
     stopifnot(identical(mc$i_val, mr$i_val))
     predecir <- function(Xc, Xr) {
@@ -1975,8 +1915,7 @@ if (!file.exists(archivo_perm)) {
                caida = f1_base - calcular_f1(as.integer(p > comb_final$umbral), real))
       })
     }) |> mutate(f1_base = f1_base, dif_oof = dif)
-  }, mc.cores = 3, mc.preschedule = FALSE)   # 3: con 5 procesos el Mac (8 GB) se quedó sin memoria
-  if (any(map_lgl(res_perm, ~ inherits(.x, "try-error")))) stop("Falló la importancia por permutación")
+  }, nucleos = 3, que = "la importancia por permutación")   # 3: con 5 procesos el Mac (8 GB) se quedó sin memoria
   res_perm <- bind_rows(res_perm)
   if (max(res_perm$dif_oof) > 1e-4) stop("Los modelos por fold no reproducen la predicción fuera de muestra")
   saveRDS(res_perm, archivo_perm)
@@ -2122,7 +2061,7 @@ cadena_fold <- function(f) {
 archivo_e2e <- file.path(dir_out, paste0("importancia_conceptos_", mejor_nuevo$nombre, ".rds"))
 if (!completo && !file.exists(archivo_e2e)) {
   t0 <- Sys.time()
-  res_e2e <- mclapply(1:k, function(f) {
+  res_e2e <- en_paralelo(1:k, function(f) {
     cad <- cadena_fold(f)
     imap_dfr(conceptos, function(cpt, nombre) {
       set.seed(100 * f + match(nombre, names(conceptos)))
@@ -2135,9 +2074,7 @@ if (!completo && !file.exists(archivo_e2e)) {
              directa     = cad$f1_base - cad$f1_de(cad$predecir_final(cad$Xp0, cad$of0, hv)),
              via_modelos = cad$f1_base - cad$f1_de(cad$predecir_final(Xp, of, cad$hv0)))
     }) |> mutate(f1_base = cad$f1_base, dif_oof = cad$dif)
-  }, mc.cores = 2, mc.preschedule = FALSE)   # 2: cada proceso guarda ~14 modelos y los datos del fold
-  fallas <- keep(res_e2e, ~ inherits(.x, "try-error"))
-  if (length(fallas)) stop("Falló la importancia por concepto: ", conditionMessage(attr(fallas[[1]], "condition")))
+  }, nucleos = 2, que = "la importancia por concepto")   # 2: cada proceso guarda ~14 modelos y los datos del fold
   res_e2e <- bind_rows(res_e2e)
   if (max(res_e2e$dif_oof) > 1e-4) stop("La cadena de modelos por fold no reproduce la predicción fuera de muestra")
   saveRDS(res_e2e, archivo_e2e)
@@ -2269,7 +2206,11 @@ marca("=== TERMINADO")
 # clasificador 0.7612 -> 0.7608, 75 variables 0.7609 -> 0.7603, combinación
 # 0.7614 -> 0.7612), dentro del ruido. Una transformación afín da los mismos
 # cortes; las predicciones cambian algo solo por cómo xgboost arma los
-# intervalos de cada variable. No aporta.
+# intervalos de cada variable. No aporta. OJO: esa corrida tenía un error
+# (se normalizaba hog_tr antes de armar(), así que ing_pred_por_ocup salía de
+# n_ocup y log_lp ya estandarizados y no era la misma variable); corregido el
+# 2026-10-26, no se repitió: para árboles normalizar no cambia los cortes, así
+# que la conclusión (no aporta) se mantiene.
 
 # Ingreso predicho mejorado, indigencia e índices (5.15-5.17; corrida del
 # 2026-10-23, sobre G_eta002_depth6_col08 nativo, F1 0.7612, honesto 0.7610).
