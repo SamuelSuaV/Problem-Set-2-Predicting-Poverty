@@ -121,8 +121,8 @@ f1_cv <- function(prob) {
 # AUC (probabilidad de que un pobre tenga mayor puntaje que un no pobre).
 calcular_auc <- function(puntaje, real) {
   r  <- rank(puntaje)
-  n1 <- sum(real == 1)
-  n0 <- sum(real == 0)
+  n1 <- as.numeric(sum(real == 1))   # numeric: n1 * n0 desborda los enteros
+  n0 <- as.numeric(sum(real == 0))
   (sum(r[real == 1]) - n1 * (n1 + 1) / 2) / (n1 * n0)
 }
 
@@ -630,4 +630,52 @@ marca("Tiempo total:", round(difftime(Sys.time(), inicio_total, units = "mins"),
 
 ### NOTAS:
 
-# (Se completan después de correr el script.)
+# F1 de CV (hiperparámetros fijos de 07, mismos 5 folds):
+#   E0 base 0.7530 | E1 +V1 0.7536 | E2 +V2 0.7533 | E3 +V3 0.7534 |
+#   E4 +V4 0.7594 | E5 (V1+V2+V3) 0.7532 | E6 (E5 + V4) 0.7596.
+# E0 da 0.7530 y no 0.7537 como en 07 porque aquí cada fold se estima por
+# separado (los bins se arman con el fold de entrenamiento y la mejor
+# iteración sale del early stopping de cada fold), no con lgb.cv. Las
+# comparaciones válidas son contra E0, con el mismo procedimiento.
+
+# V1, V2 y V3 suben el F1 en menos de 0.001 cada una: es ruido. Juntas (E5)
+# quedan por debajo de E1 solo. V2 repite información que ya está en la base
+# (educ_ocup_media, jefe_posicion, horas_pc) y V3 resume el oficio, que el
+# boosting ya usa como categórica (jefe_oficio). El máximo log_meses_empresa
+# de los ocupados no se agregó en V2 porque es igual a max_log_meses.
+
+# V4 (ingreso predicho) es lo único que sirve: +0.0065. El modelo de
+# personas tiene R² fuera de muestra de 0.94 en log1p(Ingtot) (alto en parte
+# porque los inactivos con ingreso 0 son fáciles de predecir) y
+# log(ingreso predicho pc / lp) solo tiene AUC 0.921 para pobre; clasificar
+# pobre si el ingreso predicho per cápita está bajo la línea da F1 0.696. En
+# E6, log_ing_pred_pc_lp concentra el 56% de la ganancia. Ingtot (diccionario
+# DANE) es el ingreso total de la persona: la suma de todas sus fuentes
+# (primera y segunda actividad, especie, desocupados e inactivos y otras
+# fuentes no laborales), observadas e imputadas; Impa es solo el ingreso
+# monetario de la primera actividad, antes de imputación.
+
+# Fuga: V3 y V4 usan pobre e Ingtot, así que se estiman con validación
+# cruzada anidada (26 modelos de personas: 5 de validación, 20 internos y 1
+# para test). Para el fold f, los hogares de entrenamiento reciben la
+# variable de modelos que no vieron ni f ni su propio fold, y los de f la de
+# un modelo con los otros 4 folds. La etiqueta de f nunca entra en las
+# variables del modelo que se evalúa en f.
+
+# Ensamble w x boosting + (1 - w) x logit 06 (OOF del logit: F1 0.7452):
+# con E5 el mejor es w = 0.7-0.8 (0.7540); con E6, w = 0.8 (0.7604). El logit
+# aporta poco: la ganancia sobre el boosting solo es de 0.001 o menos, y el
+# w se escoge en las mismas OOF (algo optimista).
+
+# Submissions: S1 (E5, 0.7532) y S3 (ensamble sin V4, 0.7540) no superan
+# 0.7547 y no se generan. Se generan S2 (E6, 0.7596, 23.6% de pobres) y S4
+# (ensamble con V4, w = 0.8, 0.7604, 23.5% de pobres).
+
+# Para pasar a 01b si se adoptan: V1 y V2 no dependen de los folds y se
+# podrían agregar en agregar_hogar(). V3 (target encoding) y V4 (ingreso
+# predicho) dependen de pobre e Ingtot y tienen que quedarse en el script del
+# modelo, calculadas dentro de cada fold.
+
+# Tiempo: ~52 minutos, casi todo esperando al logit 06 (~50 minutos en un
+# solo núcleo). V3/V4 tardan ~2 minutos (26 modelos en 8 procesos), E0-E4
+# ~4 minutos y E5/E6 ~3 minutos. RAM máxima ~16 GB.

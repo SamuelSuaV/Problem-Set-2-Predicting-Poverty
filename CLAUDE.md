@@ -25,6 +25,9 @@ Rscript script/04_logit.r            # logit lasso a nivel hogar: CV de lambda y
 Rscript script/05_logit_parsimonioso.r   # curva F1 vs número de variables, tabla, figura y submission (~25 min)
 Rscript script/06_logit_interacciones.r  # lasso con más interacciones y splines (~55 min)
 Rscript -e "source('script/07_boosting.r', encoding = 'UTF-8')"   # LightGBM: grilla + random search en paralelo, submission e importancia (~30 min)
+Rscript -e "source('script/07b_boosting_variables.r', encoding = 'UTF-8')"   # LightGBM con variables nuevas e ingreso predicho + ensamble con logit 06 (~52 min)
+Rscript -e "source('script/07c_boosting_ingreso.r', encoding = 'UTF-8')"     # LightGBM con variables auxiliares predichas (CV anidada), reajuste y semillas (~65 min, 20 núcleos)
+Rscript -e "source('script/10_lpm.r', encoding = 'UTF-8')"                   # modelo lineal de probabilidad (~19 min)
 Rscript -e 'rmarkdown::render("documentation/guia_variables.Rmd")'   # compila la guía y verifica que esté al día
 cd latex && latexmk -pdf resultados.tex   # documento de resultados
 ```
@@ -79,9 +82,31 @@ Correr 01 con `Rscript` (sesión nueva): ocupa ~1,4 GB, y en una sesión interac
 - **Modelo final:** `lgb.train` con todo train, `nrounds` = mejor iteración × 1,1. En `output/logs/boosting/` quedan `grid.rds`, `oof.rds`, `importancia.rds` y `modelo_final.txt`, para el diagnóstico sin volver a estimar.
 - **Resultado:** F1 CV 0,7537 (umbral 0,37; lr 0,02, 127 hojas, profundidad 6, 1313 iteraciones), por encima del logit 06 (0,7451). La superficie es plana: casi todas las configuraciones dan entre 0,749 y 0,754. Variables con más ganancia: `log_arriendo_pc_lp`, `horas_pc`, `prop_contributivo` y `educ_ocup_suma_pc` (casi la mitad del total).
 
+## Boosting con variables nuevas (`script/07b_boosting_variables.r`)
+
+- **Comando:** `Rscript -e "source('script/07b_boosting_variables.r', encoding = 'UTF-8')"` (~52 min; casi todo es el logit 06, que corre en paralelo con `callr::r_bg`). Con `prueba <- TRUE;` usa el 10% de los hogares y no guarda nada.
+- **Hiperparámetros fijos** de la mejor configuración de 07 y los mismos 5 folds. Cada fold se estima por separado (las variables cambian por fold), así que la base E0 da 0,7530 y no 0,7537. Comparar siempre contra E0.
+- **Bloques:** V1 factor de expansión; V2 el mejor ocupado del hogar; V3 target encoding del oficio (tasa de pobreza suavizada con peso 20); V4 ingreso predicho con un LightGBM de regresión de `log1p(Ingtot)` a nivel persona, con variables que están en test. `Ingtot` se lee del CSV crudo de personas de train y solo es variable objetivo del modelo auxiliar.
+- **Fuga:** V3 y V4 usan `pobre` e `Ingtot` y se estiman con validación cruzada anidada. Para el fold f, los hogares de entrenamiento reciben la variable de modelos que no vieron ni f ni su propio fold, y los de f la de un modelo con los otros 4. El modelo final usa en train las variables fuera de muestra de 5 folds y en test un modelo con todo train. V1 y V2 podrían pasar a `agregar_hogar()`; V3 y V4 tienen que quedarse en el script del modelo.
+- **Resultado:** solo el ingreso predicho sirve. E4 (+V4) da 0,7594 y E6 0,7596, frente a 0,7530 de E0; V1-V3 aportan menos de 0,001. El ensamble con el logit 06 (w = 0,8) da 0,7604. El R² del modelo de personas es 0,94 y el AUC del ingreso predicho solo es 0,921. Se generaron S2 (E6) y S4 (ensamble con V4), que dependen de que se permita usar el ingreso de train.
+
+## Boosting con variables auxiliares (`script/07c_boosting_ingreso.r`)
+
+- **Comando:** `Rscript -e "source('script/07c_boosting_ingreso.r', encoding = 'UTF-8')"` (~65 min con 20 núcleos; `prueba <- TRUE;` para probar con el 10%).
+- **Paso 0 (fórmula del DANE):** Ingpcug = Ingtotugarr / Npersug e Ingtotug = suma de Ingtot de la unidad de gasto (100%); Ingtot = laboral (Impa, Isa, Ie, Imdi y sus imputados) + no laboral (Iof*). Arriendo imputado = Ingtotugarr − Ingtotug: P5130 en propia pagada y usufructo, P5130 − P5100 en propia pagando, 0 en el resto y si P5130 es 98/99 (coincide en el 98,4%).
+- **Variables auxiliares** (todas con CV anidada): V4 ingreso de las personas (07b); V5 V4 + arriendo imputado con la regla; V6 ingreso laboral y no laboral por persona con las variables de su hogar; V7 regresión de log(Ingpcug / Lp) a nivel hogar; V8 regresión del estrato.
+- **Errores de anidar predicciones:** (1) fuga de la etiqueta, controlada con CV anidada (ningún modelo auxiliar usa la etiqueta del fold que se evalúa); (2) error distinto en train y test, controlado dando a test el promedio de los 5 modelos de los folds (no un modelo con todo train), para que tenga el mismo error que las variables fuera de muestra con que aprendió el clasificador. La diferencia resultó mínima (proporción de pobres 24,08% vs. 24,03%). Cambiar solo las semillas de los modelos auxiliares mueve el F1 ~0,001: por eso solo cuentan mejoras mayores a 0,001.
+- **Resultado:** F0 (= E4) 0,7584; V5 no aporta; V6 +0,0015; V7 +0,0013; V8 +0,0003; F5 (V6 + V7) 0,7623; reajuste (lr 0,02, 31 hojas) 0,7629; promedio de 5 semillas 0,7622. `log_ing6arr_pc_lp` (63%) e `inghog_pred` (20%) dominan la ganancia.
+
+## Modelo lineal de probabilidad (`script/10_lpm.r`)
+
+- **Comando:** `Rscript -e "source('script/10_lpm.r', encoding = 'UTF-8')"` (~19 min). Usa exactamente las variables de `train_hogar` (sin variables predichas) y los 5 folds de 04.
+- `lm` con la matriz armada con train y test juntos (como en 04) para no fallar con niveles nuevos. Genera dos submissions: la mejor configuración y la misma con pesos por clase (pobres = #no pobres / #pobres), con sufijo `_w`. Reporta F1 con el mejor umbral y con 0,5, y guarda sus resultados en `output/logs/lpm/resultados.rds`.
+- **Resultado:** efectos principales 0,7068; fórmula de 04 0,7250 (con pesos 0,7279). 27% de las predicciones quedan fuera de [0,1], casi todas negativas. Con pesos, el umbral óptimo queda en 0,6, el borde de la grilla. La submission en Kaggle es `LPM_interacciones_threshold_038.csv`.
+
 ## Windows
 
-- **Windows Server (sin UTF-8 nativo en R):** para que las tildes salgan bien en figuras, correr con `Rscript -e "source('script/05_logit_parsimonioso.r', encoding = 'UTF-8')"`. Con ese `source()`, `writeLines()` pasa el texto a CP1252: para escribir un `.tex` en UTF-8 usar `writeLines(enc2utf8(x), archivo, useBytes = TRUE)` (así lo hace 07; 05 todavía no).
+- **Windows Server (sin UTF-8 nativo en R):** para que las tildes salgan bien en figuras, correr con `Rscript -e "source('script/05_logit_parsimonioso.r', encoding = 'UTF-8')"`. Con ese `source()`, `writeLines()` pasa el texto a CP1252: para escribir un `.tex` en UTF-8 usar `writeLines(enc2utf8(x), archivo, useBytes = TRUE)` (así lo hacen 05, 07 y 07b).
 
 ## Estilo
 
