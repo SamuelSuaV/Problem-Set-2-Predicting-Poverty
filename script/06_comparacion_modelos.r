@@ -32,7 +32,7 @@
 #         output/tables/modelos_f1.tex , output/tables/equidad_mejor.tex ,
 #         output/tables/equidad_brechas.tex ; output/tables/importancia_grupos.tex ,
 #         importancia_variables.tex , importancia_directas.tex ,
-#         importancia_conceptos.tex ;
+#         importancia_conceptos.tex , importancia_variables_e2e.tex ;
 #         output/figures/equidad_errores.png .
 #
 # Correr desde la raíz, después de 05b y del logit de main. Los modelos por
@@ -456,6 +456,34 @@ conceptos_imp |>
       label = "importancia_conceptos") |>
   kable_styling(latex_options = c("scale_down", "HOLD_position")) |>
   save_kable(here("output", "tables", "importancia_conceptos.tex"))
+
+# Importancia de extremo a extremo por variable de la persona (sección 16 de
+# 05b): una variable a la vez, permutada en las personas y pasando por toda la
+# cadena de modelos (sin permutar los agregados del hogar construidos con ella).
+nombres_persona <- c(
+  posicion_ocupacional = "Posición ocupacional (P6430)",
+  recibio_arriendos_pensiones = "Recibió arriendos o pensiones el mes pasado (P7495)",
+  ingreso_trabajo_desocupado_2 = "Inactivo: recibió ingresos por trabajo el mes pasado (P7472)",
+  ingreso_trabajo_desocupado = "Desocupado: recibió ingresos por trabajo el mes pasado (P7422)",
+  arriendo_pc_sobre_lp = "Arriendo (pagado o estimado) por persona sobre la línea (log)",
+  horas_trabajo_semana = "Horas trabajadas a la semana (P6800)", ocupado = "Ocupado",
+  prop_ocupados_hogar = "Proporción de ocupados en el hogar", oficio = "Oficio",
+  recibio_otros_ingresos = "Recibió dinero de hogares, instituciones, intereses o cesantías (P7505)",
+  dinero_cesantias = "Recibió cesantías (P7510s6)", log_meses_empresa = "Meses en la empresa (log)",
+  dinero_intereses_dividendos = "Recibió intereses, dividendos o utilidades (P7510s5)",
+  tenencia_vivienda = "Tenencia de la vivienda (P5090)",
+  dinero_hogares_pais = "Recibió dinero de otros hogares en el país (P7510s1)"
+)
+readRDS(file.path(dir_05b, "importancia_variables_e2e.rds")) |>
+  head(15) |>
+  transmute(completo = coalesce(nombres_persona[variable], variable), concepto,
+            caida = coma(caida, 3), de = coma(de, 3)) |>
+  kbl(format = "latex", booktabs = TRUE, escape = FALSE,
+      col.names = c("Variable", "Concepto", "Caída del $F_1$", "D.E."),
+      caption = "Las 15 variables de la persona con mayor importancia de extremo a extremo en el mejor modelo: caída del $F_1$ al permutar una variable de las personas, que pasa por toda la cadena de modelos (promedio de 5 folds). Se probaron las 36 variables de la persona de los 5 conceptos con mayor caída total; los agregados del hogar construidos con cada variable no se permutan.",
+      label = "importancia_variables_e2e") |>
+  kable_styling(latex_options = c("scale_down", "HOLD_position"), font_size = 9) |>
+  save_kable(here("output", "tables", "importancia_variables_e2e.tex"))
 
 ### NOTAS:
 

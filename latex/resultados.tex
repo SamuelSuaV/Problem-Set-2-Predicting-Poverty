@@ -704,6 +704,30 @@ formalidad. Las importancias no se suman entre conceptos ni entre la parte
 directa y la que pasa por los modelos, porque los conceptos están
 correlacionados y los efectos interactúan.
 
+Para saber qué preguntas concretas hay detrás de esos conceptos, la sección
+16 de \texttt{05b\_xgboost\_hogar.r} hace lo mismo con una variable de la
+persona a la vez: la permuta entre las personas del fold, la pasa por toda la
+cadena de modelos y mide la caída del $F_1$
+(Cuadro~\ref{tab:importancia_variables_e2e}). Se probaron las 36 variables de
+la persona de los cinco conceptos con mayor caída total. Los agregados del
+hogar construidos con cada variable no se permutan, así que el cuadro mide
+sobre todo el efecto a través de los modelos auxiliares, que en esos
+conceptos es casi todo el efecto.
+
+\input{../output/tables/importancia_variables_e2e.tex}
+
+Una sola pregunta concentra casi toda la importancia del trabajo: la posición
+ocupacional (empleado, cuenta propia, patrón, doméstico\ldots). Permutada
+sola, el $F_1$ cae 0,208, casi lo mismo que todo su concepto (0,226); el
+oficio, en cambio, cae 0,017, porque la posición ya lleva casi toda su
+información. Le siguen haber recibido arriendos o pensiones (0,058), la
+pregunta de ingresos por trabajo de los inactivos (0,056) y el arriendo por
+persona sobre la línea (0,038). Esa pregunta solo se les hace a los
+inactivos, y apenas el 1,1\% responde que sí, así que su importancia viene
+sobre todo de identificar quién es inactivo. Después de esas cuatro, las
+horas trabajadas, estar ocupado y la proporción de ocupados del hogar
+quedan entre 0,017 y 0,021, empatadas dentro del ruido entre folds.
+
 \section{Comparación de modelos y equidad}
 \label{sec:equidad}
 

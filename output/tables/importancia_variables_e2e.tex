@@ -1,0 +1,30 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:importancia_variables_e2e}Las 15 variables de la persona con mayor importancia de extremo a extremo en el mejor modelo: caída del $F_1$ al permutar una variable de las personas, que pasa por toda la cadena de modelos (promedio de 5 folds). Se probaron las 36 variables de la persona de los 5 conceptos con mayor caída total; los agregados del hogar construidos con cada variable no se permutan.}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{llll}
+\toprule
+Variable & Concepto & Caída del $F_1$ & D.E.\\
+\midrule
+Posición ocupacional (P6430) & Formalidad, posición y oficio & 0,208 & 0,005\\
+Recibió arriendos o pensiones el mes pasado (P7495) & Ingresos no laborales & 0,058 & 0,002\\
+Inactivo: recibió ingresos por trabajo el mes pasado (P7472) & Búsqueda de trabajo e ingresos de desocupados & 0,056 & 0,006\\
+Arriendo (pagado o estimado) por persona sobre la línea (log) & Vivienda y arriendo & 0,038 & 0,003\\
+Horas trabajadas a la semana (P6800) & Ocupación y horas de trabajo & 0,021 & 0,007\\
+\addlinespace
+Ocupado & Ocupación y horas de trabajo & 0,021 & 0,014\\
+Proporción de ocupados en el hogar & Ocupación y horas de trabajo & 0,017 & 0,002\\
+Oficio & Formalidad, posición y oficio & 0,017 & 0,002\\
+Recibió dinero de hogares, instituciones, intereses o cesantías (P7505) & Ingresos no laborales & 0,015 & 0,004\\
+Desocupado: recibió ingresos por trabajo el mes pasado (P7422) & Búsqueda de trabajo e ingresos de desocupados & 0,015 & 0,001\\
+\addlinespace
+Recibió cesantías (P7510s6) & Ingresos no laborales & 0,013 & 0,005\\
+Meses en la empresa (log) & Ocupación y horas de trabajo & 0,011 & 0,003\\
+Recibió intereses, dividendos o utilidades (P7510s5) & Ingresos no laborales & 0,010 & 0,003\\
+Tenencia de la vivienda (P5090) & Vivienda y arriendo & 0,009 & 0,003\\
+Recibió dinero de otros hogares en el país (P7510s1) & Ingresos no laborales & 0,008 & 0,003\\
+\bottomrule
+\end{tabular}}
+\end{table}
