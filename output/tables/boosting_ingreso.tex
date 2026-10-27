@@ -1,0 +1,20 @@
+\begin{table}
+
+\caption{\label{tab:boosting_ingreso}LightGBM con variables auxiliares predichas (CV anidada; test con el promedio de los modelos de los folds)}
+\centering
+\begin{tabular}[t]{lp{7cm}rrrr}
+\toprule
+Experimento & Variables & Iteraciones & Umbral & F1 (CV) & Diferencia vs. F0\\
+\midrule
+F0 & Base + V4 (ingreso predicho de las personas) & 909 & 0.39 & 0.7584 & 0.0000\\
+F1 & F0 + V5 (ingarr) & 912 & 0.39 & 0.7584 & 0.0000\\
+F2 & F0 + V6 (ingpers2) & 883 & 0.34 & 0.7599 & 0.0015\\
+F3 & F0 + V7 (inghog) & 881 & 0.38 & 0.7598 & 0.0013\\
+F4 & F0 + V8 (estrato) & 765 & 0.37 & 0.7587 & 0.0003\\
+\addlinespace
+F5 & F0 + V6 (ingpers2) + V7 (inghog) & 647 & 0.36 & 0.7623 & 0.0039\\
+Reajuste & Variables de F5; mejor de 20 configuraciones (lr 0.02, hojas 31, profundidad -1) & 1045 & 0.36 & 0.7629 & 0.0044\\
+Semillas & Reajuste, promedio de 5 semillas & 876/953/1019/1033/949 & 0.36 & 0.7622 & 0.0038\\
+\bottomrule
+\end{tabular}
+\end{table}

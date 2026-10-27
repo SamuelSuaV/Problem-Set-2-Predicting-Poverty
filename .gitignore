@@ -78,3 +78,5 @@ presentacion/*.synctex.gz
 # el logit es la sección 13 de 05b_xgboost_hogar.r.
 output/pruebas/xgb/*.r
 output/pruebas/logit/combinar_ahora.r
+
+output/logs/
