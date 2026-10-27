@@ -1,0 +1,533 @@
+% =============================================================================
+% Predicting Poverty — Presentación del mejor modelo (equipo 04)
+% Autores: Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
+% Compilar desde presentacion/:  latexmk -pdf best_equipo_04.tex
+% Figuras: ../output/figures/ (generadas por 02, 05b y 06; el diagrama del
+% modelo viene de latex/estructura_modelo_slide.tex).
+% Números: latex/resultados.tex y output/tables/*.tex (rama carts_and_forests).
+% =============================================================================
+\documentclass[aspectratio=169,10pt]{beamer}
+
+% Tema: metropolis. Si no está instalado, comentar la línea de metropolis y
+% usar:  \usetheme{Madrid} \usecolortheme{beaver}
+\usetheme[progressbar=frametitle, numbering=fraction, block=fill]{metropolis}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-nodecimaldot,es-noshorthands]{babel}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{babel, positioning, arrows.meta}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+
+\graphicspath{{../output/figures/}}
+
+% ---- Colores institucionales ----------------------------------------------
+\definecolor{azul}{HTML}{0B3C5D}
+\definecolor{azulclaro}{HTML}{328CC1}
+\definecolor{dorado}{HTML}{D9B310}
+\definecolor{rojo}{HTML}{B23A48}
+\definecolor{verde}{HTML}{2E8B57}
+\definecolor{gris}{HTML}{6B7280}
+\setbeamercolor{frametitle}{bg=azul, fg=white}
+\setbeamercolor{progress bar}{fg=dorado, bg=azul!20}
+\setbeamercolor{title separator}{fg=dorado}
+\setbeamercolor{alerted text}{fg=rojo}
+\setbeamercolor{block title}{bg=azul!15, fg=azul}
+\setbeamercolor{block body}{bg=azul!5}
+
+% Números con coma decimal en pgfplots y estilo común de las barras.
+\pgfkeys{/pgf/number format/.cd, use comma, 1000 sep={.}}
+\pgfplotsset{barras/.style={
+  scale only axis, yticklabel style={font=\scriptsize},
+  xticklabel style={font=\scriptsize}, nodes near coords,
+  every node near coord/.append style={font=\scriptsize}},
+  xbar/.append style={nodes near coords align={horizontal}, point meta=x}}
+
+% ---- Etiquetas de los tres pilares ----------------------------------------
+\newcommand{\pilar}[2]{\tikz[baseline=(t.base)]\node[fill=#1, text=white,
+  rounded corners=2pt, inner sep=2pt, font=\scriptsize\bfseries](t){#2};}
+\newcommand{\pval}{\pilar{azulclaro}{VALIDACIÓN}}
+\newcommand{\pher}{\pilar{verde}{HERRAMIENTAS}}
+\newcommand{\pecon}{\pilar{rojo}{INTUICIÓN ECONÓMICA}}
+
+\title{¿Quién es pobre en Colombia?}
+\subtitle{Predicción de la pobreza monetaria con la GEIH 2018: \\
+  validación, herramientas e intuición económica}
+\author{Maria Jose Perez \and Juan Manuel Lozano \and Samuel Suárez Valle}
+\institute{Big Data y Machine Learning Aplicado a la Economía \\ Universidad de los Andes}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% =============================================================================
+\section{Overview}
+% =============================================================================
+
+\begin{frame}{Overview: qué hicimos y qué aprendimos}
+\begin{columns}[T]
+\column{0.45\textwidth}
+\begin{block}{Modelo ganador}
+\small
+\textbf{XGBoost por hogar} (163 variables) alimentado por modelos por persona
+(ingreso con pérdida \textbf{Tweedie}, probabilidad de pobreza) y combinado
+70/30 con una regresión del ingreso. Umbral 0,39.
+\end{block}
+\vspace{2mm}
+\centering\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+$F_1$ validación cruzada (5 folds) & \textbf{0,7775} \\
+$F_1$ con umbral honesto & 0,7775 \\
+\textbf{Kaggle (public leaderboard)} & \textbf{0,7775} \\
+\bottomrule
+\end{tabular}
+
+\column{0.52\textwidth}
+\textbf{Takeaways}
+\begin{enumerate}\small
+  \item Con IA, \alert{combinar variables ya no diferencia}: todos los grupos
+    llegan a $F_1$ parecidos con los mismos datos.
+  \item Ganamos con tres pilares: \pval{} \pher{} \pecon{}
+  \item La pobreza es \textbf{del hogar} y la explica el \textbf{trabajo}:
+    formalidad, ocupación e ingresos no laborales.
+  \item Educación, salud y subsidios casi no predicen el ingreso: pobreza
+    monetaria $\neq$ multidimensional.
+\end{enumerate}
+\end{columns}
+\end{frame}
+
+% =============================================================================
+\section{Datos}
+% =============================================================================
+
+\begin{frame}{Datos: por qué estas variables}
+\small
+GEIH 2018 (DANE): \textbf{543.103 personas, 164.958 hogares}, 20,0\% de hogares
+pobres. Pobre $\iff$ ingreso per cápita de la unidad de gasto \emph{con
+arriendo imputado} $<$ línea de pobreza del dominio.
+\vspace{1mm}
+
+\footnotesize
+\begin{tabular}{@{}p{2.9cm}p{7.2cm}p{3.6cm}@{}}
+\toprule
+\textbf{Bloque} & \textbf{Mecanismo económico} & \textbf{Sustento} \\
+\midrule
+Mercado laboral & El trabajo es la principal fuente de ingreso; la
+  informalidad separa ingresos estables de precarios & MESEP (2012);
+  Fernández y Villar (2017) \\
+Ingresos no laborales & Pensiones, arriendos, remesas, ayudas: ingreso sin
+  estar ocupado & DANE (2019) \\
+Vivienda y arriendo & El arriendo imputado \emph{entra} en la definición de
+  ingreso del DANE & MESEP (2012) \\
+Demografía & El mismo ingreso, dividido entre más miembros y menores &
+  Ravallion (2016) \\
+Capital humano y salud & Retornos a la educación; régimen de salud como proxy
+  de formalidad & Angulo et al.\ (2016) \\
+\bottomrule
+\end{tabular}
+\vspace{2mm}
+
+\pecon{} \small Ningún monto de ingreso está en test: el modelo
+\emph{reconstruye} el ingreso con las preguntas que sí están.
+\end{frame}
+
+\begin{frame}{Datos: qué revelaron los datos}
+\begin{columns}[T]
+\column{0.6\textwidth}
+\includegraphics[width=\linewidth]{ingreso_dummies.png}
+\column{0.38\textwidth}
+\small
+\begin{itemize}
+  \item El ingreso sube con el \textbf{tamaño de la empresa} (proxy de
+    formalidad), la educación superior y estar ocupado.
+  \item El sexo de la persona casi no lo cambia.
+  \item Ocupados del hogar y arriendo por persona: 47\% de la reducción de
+    impureza en un CART exploratorio.
+  \item Ingreso \textbf{muy asimétrico} y con muchos ceros: motiva la pérdida
+    Tweedie.
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{El pivote: la pobreza es del hogar}
+\begin{columns}[T]
+\column{0.56\textwidth}
+\begin{tikzpicture}
+\begin{axis}[barras, xbar, width=3.9cm, height=5.2cm,
+  xmin=0.69, xmax=0.805,
+  symbolic y coords={P8,P7,P6,P5,P4,P3,P2,P1}, ytick=data,
+  yticklabels={{+ regresión (70/30)}, {+ Tweedie}, {+ ingreso afinado},
+               {+ 16 preguntas no usadas}, {+ categóricas nativas},
+               {+ ingreso predicho y stacking}, {Por hogar (base 01b)},
+               {Por persona, promediado}},
+  xtick={0.70,0.74,0.78},
+  xticklabel style={/pgf/number format/fixed, /pgf/number format/precision=2},
+  xlabel={\scriptsize $F_1$ de validación cruzada},
+  every node near coord/.append style={/pgf/number format/fixed,
+    /pgf/number format/precision=4},
+  bar width=6pt, enlarge y limits=0.08]
+\addplot[fill=azulclaro, draw=azul] coordinates {
+  (0.7775,P8) (0.7772,P7) (0.7733,P6) (0.7714,P5)
+  (0.7612,P4) (0.7598,P3) (0.7534,P2) (0.7055,P1)};
+\end{axis}
+\end{tikzpicture}
+
+\column{0.42\textwidth}
+\small
+\textbf{Fase 1 (fallida):} modelar a cada persona y promediar en el hogar:
+techo de 0,706.
+
+\vspace{1mm}
+\textbf{Fase 2 (pivote):} una fila por hogar con sumas de dummies, índices y
+promedios grupales: \alert{+0,05 de $F_1$}. \pecon{}
+
+\vspace{1mm}
+\textbf{Contraste:} más combinaciones de variables (interacciones, logs,
+cuadrados, índices) \alert{no suman}: los árboles ya las construyen.
+\end{columns}
+\end{frame}
+
+% =============================================================================
+\section{Mejor modelo}
+% =============================================================================
+
+\begin{frame}{Estructura del modelo final}
+% -----------------------------------------------------------------------------
+% PLACEHOLDER: explicación visual de la estructura del modelo.
+% Por defecto se incluye el diagrama de latex/estructura_modelo_slide.tex
+% (output/figures/estructura_modelo_slide.png). Reemplazar por un diagrama
+% propio si se quiere otra versión.
+% -----------------------------------------------------------------------------
+\centering
+\IfFileExists{../output/figures/estructura_modelo_slide.png}{%
+  \includegraphics[width=\linewidth, height=0.7\textheight, keepaspectratio]{estructura_modelo_slide.png}%
+}{%
+  \fbox{\parbox[c][0.6\textheight][c]{0.9\linewidth}{\centering
+    \Large [PLACEHOLDER: DIAGRAMA DE LA ESTRUCTURA DEL MODELO]\\[2mm]
+    \normalsize Personas $\rightarrow$ modelos auxiliares $\rightarrow$
+    resúmenes por hogar $\rightarrow$ clasificador + regresión
+    $\rightarrow$ combinación 70/30}}%
+}
+
+\vspace{1mm}
+\raggedright\footnotesize Tres niveles: (1) modelos por persona con validación
+cruzada anidada; (2) resúmenes por hogar (suma, máximo, mínimo, el del jefe);
+(3) clasificador y regresión por hogar, combinados.
+\end{frame}
+
+\begin{frame}{Entrenamiento: una validación concienzuda \hfill \pval}
+\begin{columns}[T]
+\column{0.52\textwidth}
+\small
+\begin{itemize}
+  \item \textbf{Folds por hogar} (5): todos los miembros en el mismo fold.
+  \item \textbf{CV anidada}: el ingreso predicho y la probabilidad por persona
+    usan la etiqueta, así que se estiman \alert{sin ver} el fold evaluado.
+  \item \textbf{Parada temprana}: 100 rondas sin mejorar la log-loss.
+  \item \textbf{Umbral} escogido por $F_1$ (grilla 0,10--0,85).
+\end{itemize}
+
+\column{0.45\textwidth}
+\begin{block}{¿Cuánto creerle a una mejora?}
+\small
+\begin{itemize}
+  \item $F_1$ \textbf{honesto}: optimismo $\leq$ 0,0005.
+  \item \textbf{Otras particiones}: 0,7775 / 0,7784 / 0,7767.
+  \item Kaggle público = 20\% de test, \alert{DE $\approx$ 0,006}: no
+    distingue mejoras de 0,001. \textbf{Se decide por CV.}
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Optimización: hiperparámetros y funciones de pérdida \hfill \pher}
+\begin{columns}[T]
+\column{0.4\textwidth}
+\footnotesize
+\textbf{Clasificador por hogar}\\[1mm]
+\begin{tabular}{@{}ll@{}}
+\toprule
+\texttt{eta} (learning rate) & 0,02 \\
+\texttt{max\_depth} & 8 \\
+\texttt{min\_child\_weight} & 50 \\
+\texttt{colsample\_bytree} & 0,5 \\
+\texttt{subsample} & 0,8 \\
+árboles (parada temprana) & 613--869 \\
+\texttt{gamma} / \texttt{lambda} / \texttt{alpha} & 0 / 1 / 0 \\
+\bottomrule
+\end{tabular}
+
+\vspace{1mm}
+Superficie plana (0,772--0,773). \texttt{lambda} (L2) y \texttt{alpha} (L1)
+\textbf{fijos} desde iteraciones previas, para aislar lo nuevo.
+
+\column{0.57\textwidth}
+\small
+\textbf{1. Ingreso por persona con Tweedie} ($\rho = 1{,}2$; laboral y no
+laboral)
+\par\vspace{1mm}
+{\centering $L(y,\mu) = -\dfrac{y\,\mu^{1-\rho}}{1-\rho} + \dfrac{\mu^{2-\rho}}{2-\rho}$\par}
+\vspace{1mm}
+\footnotesize Predice la \emph{media} en pesos (no la mediana) y admite
+ceros: $R^2$ del hogar 0,63 $\to$ 0,66; $F_1$ 0,7733 $\to$ \textbf{0,7772}.
+
+\vspace{1mm}
+\small
+\textbf{2. Pesos en la regresión}, $z=\log(\text{ingreso}/\text{línea})$:
+\par\vspace{1mm}
+{\centering $w_i = 1 + 3\,e^{-|z_i|/0{,}25}$\par}
+\vspace{1mm}
+\footnotesize Más peso cerca de la línea, de los dos lados. Final:
+$p = 0{,}7\,p_{\text{clasif}} + 0{,}3\,p_{\text{regr}}$; pobre si $p>0{,}39$.
+\end{columns}
+\end{frame}
+
+\begin{frame}{Feature importance: permutaciones por grupo}
+\begin{columns}[T]
+\column{0.6\textwidth}
+\begin{tikzpicture}
+\begin{axis}[barras, xbar, width=3.6cm, height=4.8cm, xmin=0, xmax=0.55,
+  symbolic y coords={G7,G6,G5,G4,G3,G2,G1}, ytick=data,
+  yticklabels={{Tasa de pobreza del oficio}, {Ubicación},
+               {Otras construidas}, {Base por hogar (89 agregados)},
+               {Prob.\ de ser pobre por persona}, {Prob.\ ingreso $<$ 0,8 / 1,25 líneas},
+               {Ingreso predicho por persona}},
+  xtick={0,0.2,0.4},
+  xticklabel style={/pgf/number format/fixed, /pgf/number format/precision=1},
+  xlabel={\scriptsize Caída del $F_1$ al permutar el grupo},
+  every node near coord/.append style={/pgf/number format/fixed,
+    /pgf/number format/precision=3},
+  bar width=7pt]
+\addplot[fill=azul, draw=azul] coordinates {
+  (0.0005,G7) (0.0022,G6) (0.0051,G5) (0.0097,G4) (0.0437,G3) (0.0607,G2) (0.4232,G1)};
+\end{axis}
+\end{tikzpicture}
+
+\column{0.38\textwidth}
+\small
+\begin{itemize}
+  \item Se permuta el grupo en el fold de validación (5 folds $\times$ 3) y se
+    mide la caída del $F_1$.
+  \item Sin el ingreso predicho, el $F_1$ cae de 0,778 a \alert{0,35}.
+  \item Variable más importante: ingreso Tweedie + arriendo imputado por
+    persona sobre la línea, \alert{la fórmula del DANE} ($-$0,043). \pecon
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Feature importance de extremo a extremo: por concepto}
+\begin{columns}[T]
+\column{0.6\textwidth}
+\begin{tikzpicture}
+\begin{axis}[barras, xbar, width=3.9cm, height=5.4cm, xmin=0, xmax=0.25,
+  symbolic y coords={C10,C9,C8,C7,C6,C5,C4,C3,C2,C1}, ytick=data,
+  yticklabels={{Salud}, {Primas, subsidios, especie}, {Educación},
+               {Ubicación y línea}, {Edad, sexo, tamaño}, {Búsqueda de trabajo},
+               {Ocupación y horas}, {Vivienda y arriendo}, {Ingresos no laborales},
+               {Formalidad, posición, oficio}},
+  xtick={0,0.1,0.2},
+  xticklabel style={/pgf/number format/fixed, /pgf/number format/precision=1},
+  xlabel={\scriptsize Caída del $F_1$ (persona + hogar)},
+  nodes near coords=\empty,
+  legend style={font=\scriptsize, at={(0.97,0.03)}, anchor=south east},
+  bar width=3.5pt]
+\addplot[fill=azul, draw=azul] coordinates {
+  (0.009,C10) (0.012,C9) (0.021,C8) (0.024,C7) (0.050,C6) (0.070,C5)
+  (0.117,C4) (0.118,C3) (0.143,C2) (0.226,C1)};
+\addplot[fill=dorado, draw=dorado] coordinates {
+  (0.001,C10) (0.005,C9) (0.006,C8) (0.009,C7) (0.035,C6) (0.000,C5)
+  (0.005,C4) (0.037,C3) (0.001,C2) (0.002,C1)};
+\legend{Total, Solo directa (hogar)}
+\end{axis}
+\end{tikzpicture}
+
+\column{0.38\textwidth}
+\small
+\begin{itemize}
+  \item \textbf{Mercado laboral}: lo que más pesa (0,07--0,23); casi todo
+    pasa \emph{por los modelos por persona}.
+  \item \textbf{Ingresos no laborales y vivienda}: segundo bloque (0,12--0,14).
+  \item \textbf{Capital humano y protección social}: \alert{$\leq$ 0,021}; su
+    información ya está en el trabajo.
+\end{itemize}
+\footnotesize Las importancias no se suman: los conceptos están
+correlacionados.
+\end{columns}
+\end{frame}
+
+\begin{frame}{Diagnósticos: dónde se equivoca el modelo}
+\begin{columns}[T]
+\column{0.45\textwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[barras, ybar, width=4.6cm, height=4.2cm, ymin=0, ymax=100,
+  symbolic x coords={a,b}, xtick=data,
+  xticklabels={{$<$10\% de la línea}, {$<$50\% de la línea}},
+  ylabel={\scriptsize \%}, yticklabel style={font=\scriptsize}, enlarge x limits=0.5,
+  legend style={font=\scriptsize, at={(0.03,0.97)}, anchor=north west},
+  bar width=14pt]
+\addplot[fill=rojo, draw=rojo] coordinates {(a,30) (b,82)};
+\addplot[fill=gris!60, draw=gris] coordinates {(a,7) (b,33)};
+\legend{\% de los errores, \% de los hogares}
+\end{axis}
+\end{tikzpicture}
+
+\column{0.52\textwidth}
+\small
+\begin{itemize}
+  \item Al lado de la línea el modelo falla en el \alert{40--46\%} de los
+    hogares; con más del doble de la línea, en el 0,6\%.
+  \item Ni pesos cerca de la línea ni un modelo ``especialista'' ayudan: con
+    estas variables, ese error es \textbf{irreducible}.
+  \item Ningún grupo concentra errores de forma llamativa.
+  \item Sin fuga: las 16 preguntas nuevas tienen la misma distribución en
+    train y en test. \pval
+\end{itemize}
+\end{columns}
+\end{frame}
+
+% =============================================================================
+\section{Implicaciones de política}
+% =============================================================================
+
+\begin{frame}{Del $F_1$ a la focalización: leakage vs.\ undercoverage}
+\begin{columns}[T]
+\column{0.42\textwidth}
+\small
+Umbral 0,39, predicciones fuera de muestra:
+\begin{itemize}
+  \item \textbf{Cobertura} $\approx$81\% $\Rightarrow$
+    \alert{undercoverage} $\approx$19\%.
+  \item \textbf{Precisión} $\approx$75\% $\Rightarrow$ \alert{leakage}: 1 de
+    cada 4 beneficiarios no es pobre.
+  \item El $F_1$ pesa igual los dos errores; un programa no tiene por qué:
+    el umbral es una \textbf{decisión de política}.
+\end{itemize}
+\footnotesize
+Rural, informal y hogares grandes: más \emph{inclusión}. Pobres ``que no lo
+parecen'' (jefe formal o educado, hogar pequeño): más \emph{exclusión}. Jefa
+mujer: +3,8 pp de detección. Son tasas base distintas, no una regla
+discriminatoria (Kleinberg et al., 2017).
+
+\column{0.55\textwidth}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Atributo & Grupo & \% pobres & Sensib. & Falsos pos. \\
+\midrule
+Sexo del jefe & Hombre & 18,3 & 78,9 & 6,2 \\
+              & Mujer  & 22,4 & 82,7 & 7,4 \\
+\midrule
+Empleo del jefe & Formal   &  5,6 & \textbf{65,1} &  1,7 \\
+                & Informal & 26,1 & 80,2 & \textbf{10,1} \\
+\midrule
+Zona & Cabecera & 19,0 & 80,8 &  6,2 \\
+     & Rural    & 30,0 & 80,0 & \textbf{12,6} \\
+\midrule
+Educación jefe & Superior & 7,3 & \textbf{65,4} & 2,3 \\
+               & Primaria o menos & 28,8 & 83,4 & 10,8 \\
+\midrule
+Tamaño & 1 o 2 personas & 10,7 & \textbf{66,5} & 3,8 \\
+       & 5 o más        & 35,8 & 88,8 & \textbf{12,1} \\
+\bottomrule
+\end{tabular}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Pobreza monetaria, focalización y costo de operación}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\small
+\textbf{Qué mide el modelo}
+\begin{itemize}
+  \item Solo \textbf{pobreza monetaria}: educación, salud y subsidios casi
+    no aportan una vez se conoce el trabajo.
+  \item IPM y pobreza monetaria capturan privaciones distintas (Angulo et
+    al., 2016): focalizar ingreso con indicadores de salud o educación
+    genera errores.
+  \item Proxies observables son manipulables (Camacho y Conover, 2011).
+\end{itemize}
+
+\column{0.5\textwidth}
+\small
+\textbf{¿Encuesta corta y barata?}
+\begin{itemize}
+  \item[\textcolor{verde}{+}] No pregunta \textbf{montos de ingreso} (lo más
+    caro y subdeclarado): basta el módulo laboral, la vivienda y fuentes de
+    ingreso sí/no.
+  \item[\textcolor{rojo}{--}] Necesita el módulo laboral de \emph{cada
+    miembro} ($\sim$60 preguntas por persona): costo similar a una visita
+    SISBÉN.
+  \item[\textcolor{rojo}{--}] Formalidad verificable con PILA; ingresos no
+    laborales y búsqueda de trabajo, no.
+  \item[\textcolor{gris}{$\bullet$}] Reentrenar si cambian la línea o el
+    mercado laboral (datos de 2018).
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Cierre: qué nos hizo ganar}
+\begin{columns}[T]
+\column{0.32\textwidth}
+\begin{block}{\pval}
+\small CV anidada sin fuga, folds por hogar, $F_1$ honesto y ruido medido.
+Decidimos con la CV, no con el leaderboard.
+\end{block}
+\column{0.32\textwidth}
+\begin{block}{\pher}
+\small Categóricas nativas, pérdida Tweedie, stacking con modelos por persona
+y parada temprana.
+\end{block}
+\column{0.32\textwidth}
+\begin{block}{\pecon}
+\small La pobreza es del hogar; el arriendo imputado reproduce la regla del
+DANE; 16 preguntas del cuestionario que nadie usaba.
+\end{block}
+\end{columns}
+\vspace{6mm}
+\begin{center}
+\large Con la IA, cualquiera combina variables. \\
+\alert{La ventaja está en saber qué preguntar y en cómo comprobarlo.}
+\end{center}
+\end{frame}
+
+% =============================================================================
+\begin{frame}{Referencias}
+\tiny
+\begin{itemize}
+  \item Angulo, R., Díaz, Y. y Pardo, R. (2016). The Colombian
+    Multidimensional Poverty Index: Measuring poverty in a public policy
+    context. \emph{Social Indicators Research}, 127(1), 1--38.
+  \item Camacho, A. y Conover, E. (2011). Manipulation of social program
+    eligibility. \emph{American Economic Journal: Economic Policy}, 3(2),
+    41--65.
+  \item Chen, T. y Guestrin, C. (2016). XGBoost: A scalable tree boosting
+    system. \emph{Proceedings of the 22nd ACM SIGKDD}, 785--794.
+  \item CONPES 3877 (2016). Declaración de importancia estratégica del Sistema
+    de Identificación de Potenciales Beneficiarios (SISBÉN IV). DNP.
+  \item DANE (2019). Pobreza monetaria y multidimensional en Colombia 2018.
+    Boletín técnico.
+  \item DANE y DNP (2012). Misión para el Empalme de las Series de Empleo,
+    Pobreza y Desigualdad (MESEP): metodología de pobreza monetaria.
+  \item Fernández, C. y Villar, L. (2017). The impact of lowering the payroll
+    tax on informality in Colombia. \emph{Economía}, 18(1), 125--155.
+  \item Grosh, M. y Baker, J. (1995). Proxy means tests for targeting social
+    programs. LSMS Working Paper 118, Banco Mundial.
+  \item Kleinberg, J., Ludwig, J., Mullainathan, S. y Obermeyer, Z. (2015).
+    Prediction policy problems. \emph{American Economic Review}, 105(5),
+    491--495.
+  \item Kleinberg, J., Mullainathan, S. y Raghavan, M. (2017). Inherent
+    trade-offs in the fair determination of risk scores. \emph{ITCS}.
+  \item Ravallion, M. (2016). \emph{The Economics of Poverty}. Oxford
+    University Press.
+\end{itemize}
+\end{frame}
+
+\end{document}

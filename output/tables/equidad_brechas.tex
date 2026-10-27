@@ -1,0 +1,22 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:equidad_brechas}Brecha de sensibilidad por atributo: diferencia, en puntos porcentuales, entre el grupo con mayor y menor \% de hogares pobres detectados (entre paréntesis, el grupo con menor sensibilidad).}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\fontsize{8}{10}\selectfont
+\begin{tabular}[t]{lllllllll}
+\toprule
+Modelo & Sexo del jefe & Empleo del jefe & Zona & Edad del jefe & Educación del jefe & Tamaño del hogar & Menores & Vivienda\\
+\midrule
+CART: Por persona, x1, cp 2,5e-05, up-sampling & 0,5 (Hombre) & 15,9 (Informal) & 6,0 (Cabecera) & 13,0 (45 a 64) & 13,7 (Superior) & 31,3 (1 o 2 personas) & 24,6 (Sin menores de 18) & 11,8 (Propia)\\
+Naive Bayes: Por persona, 16 variables (x1), laplace 0 & 2,0 (Hombre) & 33,4 (Formal (cotiza a pensión)) & 12,9 (Cabecera) & 9,3 (45 a 64) & 30,6 (Superior) & 38,8 (1 o 2 personas) & 31,4 (Sin menores de 18) & 19,9 (Arriendo)\\
+XGBoost por persona: 24 variables (x3), 500 rondas & 1,2 (Hombre) & 14,0 (Formal (cotiza a pensión)) & 2,6 (Cabecera) & 10,5 (45 a 64) & 22,9 (Superior) & 23,7 (1 o 2 personas) & 22,3 (Sin menores de 18) & 11,5 (Propia)\\
+Logit lasso: Por hogar, 1.159 columnas con interacciones (main) & 4,2 (Hombre) & 22,2 (Formal (cotiza a pensión)) & 0,0 (Resto (rural)) & 7,0 (45 a 64) & 19,3 (Superior) & 25,7 (1 o 2 personas) & 23,8 (Sin menores de 18) & 7,2 (Propia)\\
+XGBoost por hogar: Solo la base por hogar de 01b & 3,8 (Hombre) & 21,0 (Formal (cotiza a pensión)) & 0,2 (Cabecera) & 6,3 (45 a 64) & 18,9 (Superior) & 22,1 (1 o 2 personas) & 20,4 (Sin menores de 18) & 7,0 (Propia)\\
+\addlinespace
+XGBoost por hogar: Mejor sin Tweedie, con la regresión del ingreso & 3,7 (Hombre) & 20,0 (Formal (cotiza a pensión)) & 1,3 (Resto (rural)) & 6,6 (45 a 64) & 18,2 (Superior) & 22,0 (1 o 2 personas) & 19,4 (Sin menores de 18) & 6,5 (Propia)\\
+Random forest: Por hogar, variables del mejor XGBoost & 4,4 (Hombre) & 21,4 (Formal (cotiza a pensión)) & 0,2 (Resto (rural)) & 6,9 (45 a 64) & 17,7 (Superior) & 21,8 (1 o 2 personas) & 19,1 (Sin menores de 18) & 6,2 (Propia)\\
+XGBoost por hogar: Mejor: Tweedie, con la regresión del ingreso & 3,8 (Hombre) & 19,7 (Formal (cotiza a pensión)) & 0,8 (Resto (rural)) & 6,9 (45 a 64) & 18,0 (Superior) & 22,4 (1 o 2 personas) & 19,9 (Sin menores de 18) & 6,4 (Propia)\\
+\bottomrule
+\end{tabular}}
+\end{table}

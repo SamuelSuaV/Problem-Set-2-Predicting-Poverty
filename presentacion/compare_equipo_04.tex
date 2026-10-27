@@ -1,0 +1,462 @@
+% =============================================================================
+% Predicting Poverty — Comparación de modelos (equipo 04)
+% Autores: Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
+% Compilar desde presentacion/:  latexmk -pdf compare_equipo_04.tex
+% Figuras: ../output/figures/ y img/ (capturas de Kaggle).
+% Números: output/tables/{modelos_f1, equidad_brechas, descriptivas,
+% importancia_*}.tex, latex/resultados.tex y las notas de los scripts de logit
+% de main (04, 05 y 06). Narrativa completa: README_compare_equipo_04.md.
+% =============================================================================
+\documentclass[aspectratio=169,10pt]{beamer}
+
+% Tema: metropolis. Si no está instalado, comentar la línea de metropolis y
+% usar:  \usetheme{Madrid} \usecolortheme{beaver}
+\usetheme[progressbar=frametitle, numbering=fraction, block=fill]{metropolis}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-nodecimaldot,es-noshorthands]{babel}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{babel, positioning, arrows.meta}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+
+\graphicspath{{../output/figures/}{img/}}
+
+% ---- Colores institucionales (los mismos de best_equipo_04.tex) -----------
+\definecolor{azul}{HTML}{0B3C5D}
+\definecolor{azulclaro}{HTML}{328CC1}
+\definecolor{dorado}{HTML}{D9B310}
+\definecolor{rojo}{HTML}{B23A48}
+\definecolor{verde}{HTML}{2E8B57}
+\definecolor{gris}{HTML}{6B7280}
+\setbeamercolor{frametitle}{bg=azul, fg=white}
+\setbeamercolor{progress bar}{fg=dorado, bg=azul!20}
+\setbeamercolor{title separator}{fg=dorado}
+\setbeamercolor{alerted text}{fg=rojo}
+\setbeamercolor{block title}{bg=azul!15, fg=azul}
+\setbeamercolor{block body}{bg=azul!5}
+
+% Colores de los tres modelos que se comparan a fondo.
+\colorlet{cxgb}{azul}
+\colorlet{crf}{verde}
+\colorlet{clogit}{dorado!85!black}
+
+% Números con coma decimal en pgfplots y estilo común de las barras.
+\pgfkeys{/pgf/number format/.cd, use comma, 1000 sep={.}}
+\pgfplotsset{barras/.style={
+  scale only axis, yticklabel style={font=\scriptsize},
+  xticklabel style={font=\scriptsize}, nodes near coords,
+  every node near coord/.append style={font=\scriptsize}},
+  xbar/.append style={nodes near coords align={horizontal}, point meta=x}}
+
+\newcommand{\etiqueta}[2]{\tikz[baseline=(t.base)]\node[fill=#1, text=white,
+  rounded corners=2pt, inner sep=2pt, font=\scriptsize\bfseries](t){#2};}
+
+\title{¿Por qué XGBoost? Comparación de modelos}
+\subtitle{Predicción de la pobreza monetaria con la GEIH 2018: \\
+  precisión, interpretabilidad y política pública}
+\author{Maria Jose Perez \and Juan Manuel Lozano \and Samuel Suárez Valle}
+\institute{Big Data y Machine Learning Aplicado a la Economía \\ Universidad de los Andes}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% =============================================================================
+\section{El modelo ganador}
+% =============================================================================
+
+\begin{frame}{Overview: el modelo que elegimos}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\begin{block}{XGBoost por hogar}
+\footnotesize
+\begin{itemize}
+  \item 163 variables; \texttt{eta} 0,02, profundidad 8, \texttt{mcw} 50,
+    \texttt{colsample} 0,5.
+  \item Modelos por persona (CV anidada): ingreso \textbf{Tweedie} y
+    probabilidad de ser pobre.
+  \item 70/30 con una regresión del ingreso. Umbral 0,39.
+\end{itemize}
+\end{block}
+
+\column{0.47\textwidth}
+\centering\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+$F_1$ validación cruzada (5 folds) & \textbf{0,7775} \\
+$F_1$ con umbral honesto & 0,7775 \\
+\bottomrule
+\end{tabular}
+
+\vspace{2mm}
+\raggedright
+Puesto 4 en el público $\rightarrow$ \alert{puesto 1 en el privado (+3)}.
+Elegimos por validación cruzada, no por el leaderboard público
+(DE $\approx$ 0,006): \textbf{generalizó mejor}.
+\end{columns}
+
+\vspace{1mm}
+\footnotesize
+\textbf{Leaderboard público} (20\% de test)\\[0.5mm]
+\includegraphics[width=\textwidth]{kaggle_publico.png}\\[1mm]
+\textbf{Leaderboard privado} (80\% de test)\\[0.5mm]
+\includegraphics[width=\textwidth]{kaggle_privado.png}
+\end{frame}
+
+% =============================================================================
+\section{Datos}
+% =============================================================================
+
+\begin{frame}{Datos: limpieza y nombres que se pueden leer}
+\begin{columns}[T]
+\column{0.4\textwidth}
+\small
+GEIH 2018: \textbf{543.103 personas, 164.958 hogares}; 20,0\% de hogares
+pobres.
+\begin{itemize}\footnotesize
+  \item \texttt{pobre} = ingreso per cápita (con arriendo imputado) $<$
+    línea: se cumple en el 100\% de los hogares.
+  \item Los \textbf{montos de ingreso} no están en test: se eliminan de
+    train.
+  \item \texttt{NA} = ``la pregunta no aplica'' (saltos del cuestionario);
+    no se reemplaza por 0 sin revisar.
+  \item Sí/no a 1/0; categóricas con su código DANE \emph{y} una dummy
+    por categoría.
+  \item Se eliminan 2 hogares de train con cuartos imposibles; de test,
+    nunca.
+  \item Base por hogar: sumas, proporciones y máximos de los miembros.
+\end{itemize}
+
+\column{0.58\textwidth}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Código DANE & Nombre en las bases & Contenido \\
+\midrule
+\texttt{P6020} & \texttt{mujer} & 1 = mujer \\
+\texttt{P6040} & \texttt{anos} & Años cumplidos \\
+\texttt{P6210} & \texttt{max\_educ} & Nivel educativo \\
+\texttt{P6100} & \texttt{regimen\_salud} & Contrib./subsidiado \\
+\texttt{P6430} & \texttt{posicion\_ocupacional} & Particular, cta.\ propia \\
+\texttt{P6800} & \texttt{horas\_trabajo\_semana} & Horas normales \\
+\texttt{P6870} & \texttt{tamano\_empresa} & Tamaño de empresa \\
+\texttt{P6920} & \texttt{cotiza\_pension} & Formalidad \\
+\texttt{P7495} & \texttt{recibio\_arriendos\_pensiones} & Sí/no \\
+\texttt{P5090} & \texttt{tenencia\_vivienda} & Propia, arriendo\ldots \\
+\texttt{Clase} & \texttt{cabecera} & 1 = cabecera \\
+Creada & \texttt{arriendo\_imputado} & Regla DANE (98,4\%) \\
+\bottomrule
+\end{tabular}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Estadísticas descriptivas: qué separa a los pobres}
+\begin{columns}[T]
+\column{0.43\textwidth}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Variable (persona) & No pobres & Pobres & Dif. \\
+\midrule
+Ocupado & 0,508 & 0,304 & $-$0,204 \\
+Educación superior & 0,295 & 0,092 & $-$0,203 \\
+Primaria & 0,232 & 0,343 & 0,111 \\
+Vivienda propia pagada & 0,427 & 0,294 & $-$0,133 \\
+Vivienda sin título & 0,032 & 0,115 & 0,082 \\
+Tamaño de empresa (0--9) & 2,15 & 0,64 & $-$1,51 \\
+Meses en la empresa & 43,8 & 25,5 & $-$18,3 \\
+Edad & 35,7 & 27,3 & $-$8,3 \\
+Prop.\ en edad de trabajar & 0,856 & 0,731 & $-$0,125 \\
+Arriendo estimado (miles) & 600 & 278 & $-$322 \\
+\bottomrule
+\end{tabular}
+
+\vspace{1mm}
+\tiny Todas las diferencias: p-valor $<$ 0,001 (prueba $t$).
+
+\column{0.55\textwidth}
+\includegraphics[width=\linewidth]{ingreso_continuas.png}
+
+\small
+\textbf{Lo que anticipa la comparación:}
+\begin{itemize}\footnotesize
+  \item Lo que separa es \textbf{del hogar} (cuántos trabajan, cuántos
+    dependen): los modelos por hogar ganan.
+  \item Relaciones \textbf{no lineales} y con umbrales (empresa, edad,
+    arriendo): favorecen a los árboles.
+\end{itemize}
+\end{columns}
+\end{frame}
+
+% =============================================================================
+\section{Comparación de algoritmos}
+% =============================================================================
+
+\begin{frame}{Panorama: el mejor modelo de cada categoría}
+\small
+Misma evaluación para todos: 5 folds por hogar, $F_1$ por hogar.
+\vspace{1mm}
+
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcccl@{}}
+\toprule
+Categoría & Especificación & $F_1$ & Honesto & Umbral & Escalón \\
+\midrule
+CART & Por persona, 16 variables, up-sampling & 0,6685 & 0,6679 & 0,62 &
+  \multirow{3}{*}{\etiqueta{gris}{por persona}} \\
+Naive Bayes & Por persona, 16 variables & 0,6755 & 0,6752 & 0,42 & \\
+XGBoost & Por persona, 24 variables & 0,7055 & 0,7055 & 0,32 & \\
+\midrule
+\textcolor{clogit}{\textbf{Logit lasso}} & Por hogar, 1.159 columnas con interacciones & 0,7451 & 0,7449 & 0,37 &
+  \multirow{2}{*}{\etiqueta{azulclaro}{por hogar}} \\
+XGBoost & Por hogar, solo la base de agregados & 0,7534 & 0,7532 & 0,36 & \\
+\midrule
+XGBoost & Por hogar, sin Tweedie & 0,7738 & 0,7736 & 0,38 &
+  \multirow{3}{*}{\etiqueta{azul}{+ modelos anidados}} \\
+\textcolor{crf}{\textbf{Random forest}} & Por hogar, variables del mejor XGBoost & 0,7752 & 0,7750 & 0,40 & \\
+\textcolor{cxgb}{\textbf{XGBoost final}} & Tweedie + regresión del ingreso & \textbf{0,7775} & \textbf{0,7775} & 0,39 & \\
+\bottomrule
+\end{tabular}
+\vspace{2mm}
+
+\small Tres escalones: el salto lo da la \textbf{unidad de análisis}
+(persona $\to$ hogar, +0,04) y la \textbf{información} (modelos anidados,
++0,02), más que el algoritmo. Kaggle de modelos del equipo: logit lasso 0,74,
+LightGBM 0,75.
+\end{frame}
+
+\begin{frame}{La frontera: precisión vs.\ complejidad}
+\begin{columns}[T]
+\column{0.62\textwidth}
+\begin{tikzpicture}
+\begin{axis}[scale only axis, width=6.6cm, height=4.9cm,
+  xmin=0.3, xmax=8.7, ymin=0.64, ymax=0.80,
+  xtick={1,...,8}, xticklabels={},
+  ytick={0.66,0.70,0.74,0.78},
+  yticklabel style={font=\scriptsize, /pgf/number format/fixed, /pgf/number format/precision=2},
+  ylabel={\scriptsize $F_1$ (5 folds)},
+  xlabel={\scriptsize Complejidad / pérdida de interpretabilidad $\longrightarrow$ \quad (orden cualitativo)},
+  grid=major, grid style={gris!20}]
+\draw[dashed, rojo, thick] (axis cs:4,0.7451) -- (axis cs:8,0.7775);
+\addplot[only marks, mark=*, mark size=2.5pt, gris] coordinates {
+  (1,0.6970) (2,0.6685) (3,0.6755) (5,0.7055) (6,0.7534)};
+\addplot[only marks, mark=*, mark size=3.5pt, clogit] coordinates {(4,0.7451)};
+\addplot[only marks, mark=*, mark size=3.5pt, crf] coordinates {(7,0.7752)};
+\addplot[only marks, mark=*, mark size=3.5pt, cxgb] coordinates {(8,0.7775)};
+\begin{scope}[font=\tiny]
+\node[below right=2pt] at (axis cs:0.8,0.6970) {Logit 15 var.};
+\node[below=2pt] at (axis cs:2,0.6685) {CART};
+\node[below=2pt] at (axis cs:3,0.6755) {Naive Bayes};
+\node[above left=1pt, clogit] at (axis cs:4,0.7451) {\textbf{Logit lasso}};
+\node[below=2pt] at (axis cs:5,0.7055) {XGB persona};
+\node[below=2pt] at (axis cs:6,0.7534) {XGB base hogar};
+\node[above=2pt, crf] at (axis cs:7,0.7752) {\textbf{RF}};
+\node[below=4pt, cxgb] at (axis cs:8,0.7775) {\textbf{XGB final}};
+\end{scope}
+\node[font=\tiny, rojo, align=center] at (axis cs:7.4,0.665) {+0,032 de $F_1$\\a cambio de 26 modelos\\anidados por variable};
+\end{axis}
+\end{tikzpicture}
+
+\column{0.36\textwidth}
+\small
+\begin{itemize}
+  \item La frontera es \textbf{cóncava}: de 0,697 (logit con 15 variables) a
+    0,745 (lasso) a 0,778 (XGBoost), cada punto cuesta más complejidad.
+  \item RF y XGBoost están a \alert{0,002} entre sí: con la misma
+    información, el algoritmo casi no importa.
+  \item El logit está a 0,032 del ganador con un modelo que se puede
+    escribir en una ecuación.
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Top 3: drivers, resultados y limitaciones}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.6cm}*{3}{>{\raggedright\arraybackslash}p{3.95cm}}@{}}
+\toprule
+& \textcolor{cxgb}{\textbf{XGBoost final}} & \textcolor{crf}{\textbf{Random forest}} & \textcolor{clogit}{\textbf{Logit lasso}} \\
+\midrule
+$F_1$ / umbral & \textbf{0,7775} / 0,39 & 0,7752 / 0,40 & 0,7451 / 0,37 \\
+Cómo funciona & Árboles secuenciales que corrigen el error anterior; stacking con modelos por persona & 500 árboles profundos en paralelo (\texttt{mtry} 30) que se promedian & Regresión logística penalizada con interacciones y splines \\
+Drivers & Ingreso predicho (permutarlo: $-$0,42 de $F_1$). De la persona: posición ocupacional ($-$0,21), arriendos/pensiones ($-$0,06), ingresos de inactivos ($-$0,06) & Las mismas variables que XGBoost (importancia propia no calculada); depende de la misma cadena de modelos anidados & Bloques: demografía 0,47 $\to$ +trabajo 0,55 $\to$ +calidad del empleo 0,62 $\to$ +salud/educación 0,67 $\to$ +vivienda/ingresos no lab.\ 0,73. Más predictivas: arriendo por persona, prop.\ contributivo \\
+Fortalezas & Mejor $F_1$; estable entre particiones (DE 0,0003); 1.º en Kaggle privado & Casi el mismo $F_1$, menos hiperparámetros sensibles & Coeficientes con signo y magnitud; auditable; sin modelos anidados que mantener \\
+Limitaciones & Caja negra; 26 modelos por variable; costoso de mantener y explicar & Caja negra; combinado con XGBoost no suma (0,7773): mismos errores & 0,03 menos de $F_1$; 794 coeficientes no nulos: interpretable por bloques, no uno a uno \\
+\bottomrule
+\end{tabular}
+
+\vspace{2mm}
+\small Logit y XGBoost tienen una correlación de \textbf{0,92} en log odds:
+se equivocan en los \emph{mismos} hogares (los que están cerca de la línea).
+\end{frame}
+
+\begin{frame}{Cuánto cuesta en $F_1$ un modelo que se puede leer}
+\begin{columns}[T]
+\column{0.6\textwidth}
+\begin{tikzpicture}
+\begin{axis}[scale only axis, width=6.2cm, height=4.6cm,
+  xmin=0, xmax=100, ymin=0.56, ymax=0.80,
+  xlabel={\scriptsize Número de variables del logit (sin penalizar, orden del lasso)},
+  ylabel={\scriptsize $F_1$ (5 folds)},
+  ytick={0.60,0.65,0.70,0.75,0.80},
+  xticklabel style={font=\scriptsize}, yticklabel style={font=\scriptsize,
+    /pgf/number format/fixed, /pgf/number format/fixed zerofill,
+    /pgf/number format/precision=2},
+  grid=major, grid style={gris!20},
+  legend style={font=\tiny, at={(0.98,0.03)}, anchor=south east}]
+\addplot[clogit, thick, mark=*, mark size=1.8pt] coordinates {
+  (3,0.5848) (5,0.6351) (8,0.6591) (10,0.6732) (12,0.6739) (15,0.6970)
+  (20,0.7039) (25,0.7106) (30,0.7157) (40,0.7273) (50,0.7313) (94,0.7357)};
+\addplot[cxgb, dashed, thick, domain=0:100] {0.7775};
+\addplot[crf, dotted, thick, domain=0:100] {0.7752};
+\addplot[clogit, dashdotted, domain=0:100] {0.7451};
+\legend{{Logit con $k$ variables}, {XGBoost final (0,7775)}, {Random forest (0,7752)},
+  {Logit lasso con interacciones (0,7451)}}
+\end{axis}
+\end{tikzpicture}
+
+\column{0.38\textwidth}
+\small
+\begin{itemize}
+  \item \textbf{15 variables} (arriendo por persona, prop.\ contributivo,
+    menores, horas, formales\ldots): $F_1$ 0,697.
+  \item \textbf{40 variables}: 0,727, a \alert{0,05} del XGBoost.
+  \item Las interacciones del lasso suman 0,01 más; el resto de la
+    distancia lo cubre la información anidada, no la forma funcional.
+  \item Para un policymaker: una tabla de 15--40 coeficientes se puede
+    publicar y discutir.
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Equidad: ¿a quién excluye cada modelo?}
+\begin{columns}[T]
+\column{0.52\textwidth}
+\small
+Brecha de sensibilidad (puntos porcentuales) entre el grupo mejor y el peor
+detectado:\\[2mm]
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Atributo & NB & \textcolor{clogit}{Logit} & \textcolor{crf}{RF} & \textcolor{cxgb}{XGB} \\
+\midrule
+Sexo del jefe & 2,0 & 4,2 & 4,4 & 3,8 \\
+Empleo del jefe & 33,4 & 22,2 & 21,4 & 19,7 \\
+Zona & 12,9 & 0,0 & 0,2 & 0,8 \\
+Educación del jefe & 30,6 & 19,3 & 17,7 & 18,0 \\
+Tamaño del hogar & 38,8 & 25,7 & 21,8 & 22,4 \\
+Menores & 31,4 & 23,8 & 19,1 & 19,9 \\
+Vivienda & 19,9 & 7,2 & 6,2 & 6,4 \\
+\bottomrule
+\end{tabular}
+
+\vspace{1mm}
+\scriptsize NB: naive Bayes, como referencia. Figura completa por grupo:
+\texttt{output/figures/equidad\_errores.png}.
+
+\column{0.45\textwidth}
+\small
+\begin{itemize}
+  \item Los modelos más precisos \textbf{reducen} casi todas las brechas;
+    entre los top 3 son parecidas.
+  \item Todos excluyen más a los pobres con jefe formal o educado y a los
+    hogares pequeños.
+  \item Sexo del jefe: $\approx$4 pp en los modelos por hogar, a favor de
+    los hogares con jefa.
+\end{itemize}
+\end{columns}
+\end{frame}
+
+% =============================================================================
+\section{Conclusión}
+% =============================================================================
+
+\begin{frame}{Conclusión: interpretabilidad vs.\ flexibilidad}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{4.2cm}cc@{}}
+\toprule
+Criterio & \textcolor{clogit}{\textbf{Logit}} & \textcolor{cxgb}{\textbf{XGBoost}} \\
+\midrule
+$F_1$ & 0,745 & \textbf{0,778} \\
+Se explica a un beneficiario & \textcolor{verde}{sí} & \textcolor{rojo}{no} \\
+Auditable por un ente de control & \textcolor{verde}{sí} & \textcolor{rojo}{difícil} \\
+Costo de mantener y reentrenar & \textcolor{verde}{bajo} & \textcolor{rojo}{alto} \\
+Riesgo de manipulación & \textcolor{rojo}{mayor} & \textcolor{verde}{menor} \\
+Captura no linealidades & \textcolor{rojo}{a mano} & \textcolor{verde}{sola} \\
+\bottomrule
+\end{tabular}
+
+\vspace{2mm}
+\footnotesize Un instrumento de focalización tiene que ser \textbf{creíble}:
+los hogares y los entes de control deben entender por qué alguien entra o
+sale (Camacho y Conover, 2011; Kleinberg et al., 2015).
+
+\column{0.47\textwidth}
+\begin{block}{Recomendación de política}
+\small
+\begin{enumerate}\footnotesize
+  \item \textbf{Instrumento oficial: un logit parsimonioso} (15--40
+    variables del módulo laboral y la vivienda), publicable y
+    discutible.
+  \item \textbf{XGBoost como auditor}: señala los hogares que el logit
+    excluiría y que probablemente son pobres (los que ``no lo parecen''),
+    para verificarlos en campo.
+  \item Elegir el \textbf{umbral} según el costo social de excluir vs.\
+    incluir, no por $F_1$.
+\end{enumerate}
+\end{block}
+\vspace{1mm}
+\footnotesize\textbf{Para discutir:} ¿cuántos puntos de $F_1$ vale la
+transparencia? ¿quién responde por el error de una caja negra?
+\end{columns}
+\end{frame}
+
+% =============================================================================
+\begin{frame}{Referencias}
+\tiny
+\begin{itemize}
+  \item Angulo, R., Díaz, Y. y Pardo, R. (2016). The Colombian
+    Multidimensional Poverty Index: Measuring poverty in a public policy
+    context. \emph{Social Indicators Research}, 127(1), 1--38.
+  \item Breiman, L. (2001). Random forests. \emph{Machine Learning}, 45(1),
+    5--32.
+  \item Camacho, A. y Conover, E. (2011). Manipulation of social program
+    eligibility. \emph{American Economic Journal: Economic Policy}, 3(2),
+    41--65.
+  \item Chen, T. y Guestrin, C. (2016). XGBoost: A scalable tree boosting
+    system. \emph{Proceedings of the 22nd ACM SIGKDD}, 785--794.
+  \item DANE (2019). Pobreza monetaria y multidimensional en Colombia 2018.
+    Boletín técnico.
+  \item Grosh, M. y Baker, J. (1995). Proxy means tests for targeting social
+    programs. LSMS Working Paper 118, Banco Mundial.
+  \item Kleinberg, J., Ludwig, J., Mullainathan, S. y Obermeyer, Z. (2015).
+    Prediction policy problems. \emph{American Economic Review}, 105(5),
+    491--495.
+  \item Kleinberg, J., Mullainathan, S. y Raghavan, M. (2017). Inherent
+    trade-offs in the fair determination of risk scores. \emph{ITCS}.
+  \item Rudin, C. (2019). Stop explaining black box machine learning models
+    for high stakes decisions and use interpretable models instead.
+    \emph{Nature Machine Intelligence}, 1(5), 206--215.
+  \item Tibshirani, R. (1996). Regression shrinkage and selection via the
+    lasso. \emph{Journal of the Royal Statistical Society B}, 58(1),
+    267--288.
+\end{itemize}
+\end{frame}
+
+\end{document}

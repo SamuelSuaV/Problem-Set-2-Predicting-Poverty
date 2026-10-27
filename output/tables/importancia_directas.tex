@@ -1,0 +1,30 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:importancia_directas}Las 15 variables más importantes que no salen de un modelo (base por hogar, construidas y ubicación), con importancia por permutación en el mejor modelo.}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{lllll}
+\toprule
+Variable & Código & Caída del $F_1$ & D.E. & Ganancia (\%)\\
+\midrule
+Tenencia de la vivienda & \texttt{tenencia} & 0,0039 & 0,0015 & 0,3\\
+Cuartos por persona & \texttt{cuartos\_pc} & 0,0016 & 0,0010 & 0,2\\
+Ciudad (dominio geográfico) & \texttt{dominio} & 0,0014 & 0,0008 & 0,2\\
+Primas, subsidios y bonificaciones por persona & \texttt{beneficios\_pc} & 0,0012 & 0,0009 & 0,2\\
+Educación máxima de los adultos × ocupados por persona & \texttt{educ\_adultos\_x\_ocup\_pc} & 0,0012 & 0,0008 & 0,2\\
+\addlinespace
+Arriendo por persona relativo a la mediana de la ciudad & \texttt{rel\_dom\_log\_arriendo} & 0,0010 & 0,0010 & 0,2\\
+Oficio del jefe & \texttt{jefe\_oficio} & 0,0010 & 0,0007 & 0,2\\
+Arriendo (pagado o estimado) por persona sobre la línea (log) & \texttt{log\_arriendo\_pc\_lp} & 0,0010 & 0,0008 & 0,2\\
+Coeficiente de variación de la educación de los adultos & \texttt{cv\_educ\_adultos} & 0,0009 & 0,0007 & 0,3\\
+Arriendo por persona sobre la línea × línea (log) & \texttt{arriendo\_x\_log\_lp} & 0,0009 & 0,0005 & 0,2\\
+\addlinespace
+Departamento & \texttt{depto} & 0,0009 & 0,0009 & 0,3\\
+Educación de los ocupados por persona × formales por persona & \texttt{educ\_ocup\_x\_formal\_pc} & 0,0007 & 0,0009 & 0,0\\
+Años de educación de los ocupados por persona & \texttt{educ\_ocup\_suma\_pc} & 0,0006 & 0,0004 & 0,1\\
+Proporción en régimen contributivo de salud & \texttt{prop\_contributivo} & 0,0006 & 0,0005 & 0,1\\
+Edad del jefe & \texttt{jefe\_edad} & 0,0006 & 0,0006 & 0,2\\
+\bottomrule
+\end{tabular}}
+\end{table}

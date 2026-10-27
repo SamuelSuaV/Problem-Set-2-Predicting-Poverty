@@ -1,0 +1,76 @@
+% Versión simplificada del diagrama del modelo final (Figura fig:estructura de
+% resultados.tex) para slides: mismas cajas, textos resumidos.
+% Compilar desde latex/:  latexmk -pdf estructura_modelo_slide.tex
+% PNG en alta resolución:
+%   gs -q -dNOPAUSE -dBATCH -sDEVICE=png16m -r600 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 \
+%      -sOutputFile=../output/figures/estructura_modelo_slide.png estructura_modelo_slide.pdf
+\documentclass[border=4mm]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, calc, fit, backgrounds}
+
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily,
+  caja/.style={draw, rounded corners=4pt, align=center, inner sep=6pt, fill=white,
+              line width=0.6pt, minimum height=17mm},
+  datos/.style={caja, fill=gray!12, text width=3.6cm},
+  aux/.style={caja, fill=blue!7, text width=4.2cm},
+  hogar/.style={caja, fill=orange!12, text width=4.2cm},
+  final/.style={caja, fill=green!12, text width=4.4cm},
+  flecha/.style={-{Stealth[length=2.6mm]}, thick},
+  etiqueta/.style={font=\sffamily\small, fill=white, inner sep=1.5pt},
+  node distance=7mm and 12mm]
+
+% Datos
+\node[datos] (pers) {\textbf{Personas}\\[2pt] $\sim$60 variables\\ de cada miembro};
+\node[datos, below=30mm of pers] (hog) {\textbf{Hogares}\\[2pt] 94 agregados\\ + arriendo imputado};
+
+% Modelos auxiliares por persona
+\node[aux, right=of pers, yshift=18mm] (ing) {\textbf{Ingreso por persona}\\[2pt] XGBoost regresión\\ (mejor: Tweedie)};
+\node[aux, below=of ing] (prob) {\textbf{Pobreza por persona}\\[2pt] XGBoost logística};
+\node[aux, below=of prob] (ofi) {\textbf{Pobreza del oficio}\\[2pt] promedio suavizado};
+\begin{scope}[on background layer]
+  \node[draw, dashed, rounded corners, fill=blue!2, inner sep=7pt, fit=(ing)(prob)(ofi),
+        label={[font=\sffamily\bfseries]above:Modelos por persona (CV anidada)}] {};
+\end{scope}
+
+% Agregación por hogar
+\node[hogar, right=14mm of ing] (agring) {\textbf{Ingreso del hogar}\\[2pt] predicho + arriendo\\ sobre la línea};
+\node[hogar, right=14mm of prob, yshift=-12mm] (agrprob) {\textbf{Resumen por hogar}\\[2pt] media, máximo, mínimo\\ y jefe del hogar};
+
+% Modelos por hogar
+\node[final, right=16mm of agring, yshift=-4mm] (clf) {\textbf{Clasificador XGBoost}\\[2pt] 163 variables\\ $F_1$ = 0,777};
+\node[final, right=16mm of agrprob, yshift=-14mm] (reg) {\textbf{Regresión XGBoost}\\[2pt] log(ingreso / línea)\\ $F_1$ = 0,769};
+
+% Combinación
+\node[caja, fill=green!25, right=14mm of clf, yshift=-26mm, text width=3.6cm] (comb) {\textbf{Combinación}\\[3pt]
+  70\% clasif. + 30\% regr.\\ pobre si $p > 0{,}39$\\[4pt]
+  \large\textbf{$F_1$ = 0,7775}};
+
+% Flechas: datos -> modelos por persona
+\draw[flecha] (pers.east) -- (ing.west);
+\draw[flecha] (pers.east) -- (prob.west);
+\draw[flecha] (pers.east) -- (ofi.west);
+\draw[flecha] (hog.east) -- ++(5mm,0) |- (ing.west);
+% Modelos por persona -> resumen por hogar
+\draw[flecha] (ing.east) -- (agring.west);
+\draw[flecha] (prob.east) -- (agrprob.west);
+\draw[flecha] (ofi.east) -- (agrprob.west);
+% Resumen por hogar -> modelos por hogar
+\draw[flecha] (agring.east) -- ($(clf.west)+(0,4mm)$);
+\draw[flecha] (agring.east) -- ($(reg.west)+(0,6mm)$);
+\draw[flecha] (agrprob.east) -- ($(clf.west)+(0,-3mm)$);
+\draw[flecha] (agrprob.east) -- ($(reg.west)+(0,0mm)$);
+% La base por hogar entra directo a los dos modelos por hogar.
+\coordinate (bus) at ($(agrprob.east)!0.5!(reg.west)$);
+\draw[flecha] (hog.east) -- (hog.east -| bus) |- ($(reg.west)+(0,-6mm)$);
+\draw[flecha] (hog.east -| bus) |- ($(clf.west)+(0,-9mm)$);
+\node[etiqueta, above] at ($(hog.east)!0.5!(hog.east -| bus)$) {base por hogar};
+% Modelos por hogar -> combinación
+\draw[flecha] (clf.east) -- (comb.north west);
+\draw[flecha] (reg.east) -- (comb.south west);
+\end{tikzpicture}
+\end{document}

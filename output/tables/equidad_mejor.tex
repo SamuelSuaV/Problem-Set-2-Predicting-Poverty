@@ -1,0 +1,56 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:equidad_mejor}Mejor modelo (XGBoost por hogar con Tweedie y regresión): desempeño por grupo de población, con las predicciones fuera de muestra de train. Sensibilidad: \% de los hogares pobres detectados; falsos positivos: \% de los no pobres predichos pobres; precisión: \% de los predichos pobres que sí lo son.}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{lllllllll}
+\toprule
+Atributo & Grupo & Hogares & \% pobres & \% predicho & Sensibilidad & Falsos pos. & Precisión & $F_1$\\
+\midrule
+ & Hombre & 95.959 & 18,3 & 19,5 & 78,9 & 6,2 & 74,0 & 0,764\\
+
+\multirow[t]{-1}{*}[\normalbaselineskip]{\raggedright\arraybackslash Sexo del jefe} & Mujer & 68.999 & 22,4 & 24,3 & 82,7 & 7,4 & 76,2 & 0,793\\
+\cmidrule{1-9}
+ & Formal (cotiza a pensión) & 45.812 & 5,6 & 5,3 & 65,1 & 1,7 & 69,8 & 0,674\\
+
+ & Informal & 71.343 & 26,1 & 28,4 & 80,2 & 10,1 & 73,8 & 0,769\\
+
+\multirow[t]{-2}{*}[\normalbaselineskip]{\raggedright\arraybackslash Empleo del jefe} & No ocupado & 47.803 & 24,7 & 26,8 & 84,8 & 7,8 & 78,0 & 0,813\\
+\cmidrule{1-9}
+ & Cabecera & 149.486 & 19,0 & 20,3 & 80,8 & 6,2 & 75,4 & 0,780\\
+
+\multirow[t]{-1}{*}[\normalbaselineskip]{\raggedright\arraybackslash Zona} & Resto (rural) & 15.472 & 30,0 & 32,9 & 80,0 & 12,6 & 73,1 & 0,764\\
+\cmidrule{1-9}
+ & Menos de 30 & 20.232 & 24,0 & 26,0 & 82,3 & 8,2 & 76,0 & 0,790\\
+
+ & 30 a 44 & 46.819 & 24,6 & 27,1 & 84,1 & 8,4 & 76,5 & 0,801\\
+
+ & 45 a 64 & 65.460 & 17,5 & 18,3 & 77,3 & 5,9 & 73,6 & 0,754\\
+
+\multirow[t]{-3}{*}[\normalbaselineskip]{\raggedright\arraybackslash Edad del jefe} & 65 o más & 32.447 & 16,0 & 17,1 & 78,9 & 5,3 & 73,9 & 0,763\\
+\cmidrule{1-9}
+ & Primaria o menos & 55.317 & 28,8 & 31,7 & 83,4 & 10,8 & 75,8 & 0,794\\
+
+ & Secundaria o media & 65.227 & 21,3 & 22,9 & 81,1 & 7,2 & 75,3 & 0,781\\
+
+\multirow[t]{-2}{*}[\normalbaselineskip]{\raggedright\arraybackslash Educación del jefe} & Superior & 44.414 & 7,3 & 6,9 & 65,4 & 2,3 & 69,6 & 0,674\\
+\cmidrule{1-9}
+ & 1 o 2 personas & 60.278 & 10,7 & 10,5 & 66,5 & 3,8 & 67,9 & 0,672\\
+
+ & 3 o 4 personas & 71.505 & 20,5 & 22,4 & 80,3 & 7,5 & 73,5 & 0,767\\
+
+\multirow[t]{-2}{*}[\normalbaselineskip]{\raggedright\arraybackslash Tamaño del hogar} & 5 o más & 33.175 & 35,8 & 39,6 & 88,8 & 12,1 & 80,4 & 0,844\\
+\cmidrule{1-9}
+ & Con menores de 18 & 86.722 & 29,6 & 32,9 & 85,1 & 10,9 & 76,7 & 0,807\\
+
+\multirow[t]{-1}{*}[\normalbaselineskip]{\raggedright\arraybackslash Menores} & Sin menores de 18 & 78.236 & 9,3 & 8,9 & 65,2 & 3,1 & 68,3 & 0,667\\
+\cmidrule{1-9}
+ & Propia & 67.901 & 14,2 & 15,0 & 78,2 & 4,6 & 73,8 & 0,759\\
+
+ & Arriendo & 64.452 & 22,4 & 24,1 & 79,9 & 8,0 & 74,2 & 0,769\\
+
+\multirow[t]{-2}{*}[\normalbaselineskip]{\raggedright\arraybackslash Vivienda} & Usufructo u otra & 32.605 & 27,4 & 29,8 & 84,5 & 9,1 & 77,7 & 0,810\\
+\bottomrule
+\end{tabular}}
+\end{table}

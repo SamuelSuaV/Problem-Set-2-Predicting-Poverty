@@ -1,0 +1,23 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:importancia_conceptos}Importancia de extremo a extremo por concepto en el mejor modelo: caída del $F_1$ al permutar las variables del concepto. Total: en las personas (entrada de los modelos auxiliares) y en el hogar; directa: solo en el hogar; vía modelos auxiliares: solo en las personas. La perturbación pasa por toda la cadena de modelos (promedio de 5 folds).}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{llllll}
+\toprule
+Concepto & Variables (persona / hogar) & Total & Directa & Vía modelos auxiliares & D.E. total\\
+\midrule
+Formalidad, posición y oficio & 4 / 32 & 0,226 & 0,002 & 0,226 & 0,004\\
+Ingresos no laborales & 10 / 10 & 0,143 & 0,001 & 0,137 & 0,008\\
+Vivienda y arriendo & 3 / 10 & 0,118 & 0,037 & 0,045 & 0,005\\
+Ocupación y horas de trabajo & 9 / 26 & 0,117 & 0,005 & 0,122 & 0,006\\
+Búsqueda de trabajo e ingresos de desocupados & 10 / 1 & 0,070 & 0,000 & 0,070 & 0,007\\
+\addlinespace
+Edad, sexo y tamaño del hogar & 4 / 14 & 0,050 & 0,035 & 0,023 & 0,005\\
+Ubicación y línea de pobreza & 4 / 8 & 0,024 & 0,009 & 0,017 & 0,002\\
+Educación & 3 / 19 & 0,021 & 0,006 & 0,024 & 0,003\\
+Primas, subsidios y pagos en especie & 16 / 4 & 0,012 & 0,005 & 0,008 & 0,001\\
+Salud & 2 / 5 & 0,009 & 0,001 & 0,010 & 0,001\\
+\bottomrule
+\end{tabular}}
+\end{table}

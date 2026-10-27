@@ -53,5 +53,30 @@ rsconnect/
 # macOS
 .DS_Store
 
+# Archivos auxiliares de LaTeX (se regeneran al compilar; el PDF sí se versiona)
+latex/*.aux
+latex/*.fdb_latexmk
+latex/*.fls
+latex/*.log
+latex/*.out
+latex/*.toc
+latex/*.synctex.gz
+presentacion/*.aux
+presentacion/*.fdb_latexmk
+presentacion/*.fls
+presentacion/*.nav
+presentacion/*.out
+presentacion/*.snm
+presentacion/*.toc
+presentacion/*.synctex.gz
+
+# Logs de las corridas (se regeneran al correr cada script)
+*.log
+
+# Pruebas de una sola vez, ya registradas en los scripts: las de XGBoost por
+# persona están comentadas en la sección 4 de 05_xgboost.r y la combinación con
+# el logit es la sección 13 de 05b_xgboost_hogar.r.
+output/pruebas/xgb/*.r
+output/pruebas/logit/combinar_ahora.r
 
 output/logs/

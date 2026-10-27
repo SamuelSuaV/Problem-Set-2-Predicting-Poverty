@@ -2200,12 +2200,12 @@ cesantías (12 meses)</td>
 </div>
 <div id="hogar-y-vivienda" class="section level2">
 <h2>Hogar y vivienda</h2>
-<table style="width:100%;">
+<table>
 <colgroup>
-<col width="9%" />
-<col width="6%" />
-<col width="42%" />
-<col width="41%" />
+<col width="4%" />
+<col width="5%" />
+<col width="69%" />
+<col width="20%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -2227,6 +2227,19 @@ cesantías (12 meses)</td>
 <td align="left">P5010</td>
 <td align="left">Cuartos donde duermen</td>
 <td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">personas_por_dormitorio</td>
+<td align="left">Creada</td>
+<td align="left">personas_hogar / cuartos_dormir (hacinamiento)</td>
+<td align="left">Numérico &gt; 0</td>
+</tr>
+<tr class="even">
+<td align="left">personas_por_cuarto</td>
+<td align="left">Creada</td>
+<td align="left">personas_hogar / cuartos_hogar (cuartos_hogar incluye
+sala-comedor)</td>
+<td align="left">Numérico &gt; 0</td>
 </tr>
 <tr class="odd">
 <td align="left">tenencia_vivienda</td>
@@ -2305,28 +2318,79 @@ usufructo)</td>
 <tr class="odd">
 <td align="left">prop_edad_trabajar</td>
 <td align="left">Creada</td>
-<td align="left">Personas en edad de trabajar / personas_hogar</td>
+<td align="left">Personas en edad de trabajar / personas_hogar. No es
+una tasa de dependencia: edad_trabajar es 12+ en cabecera y 10+ en
+resto, sin límite superior, así que solo descuenta a los niños</td>
 <td align="left">Entre 0 y 1</td>
 </tr>
 <tr class="even">
+<td align="left">prop_dependientes</td>
+<td align="left">Creada</td>
+<td align="left">Dependientes (menores de 15 y mayores de 64) /
+personas_hogar</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="odd">
+<td align="left">tasa_dependencia</td>
+<td align="left">Creada</td>
+<td align="left">Tasa de dependencia: (menores de 15 + mayores de 64) /
+personas de 15 a 64</td>
+<td align="left">Numérico &gt;= 0; NA si nadie en el hogar tiene entre
+15 y 64</td>
+</tr>
+<tr class="even">
+<td align="left">educ_max_adultos</td>
+<td align="left">Creada</td>
+<td align="left">Máximo de anos_educ_imp entre los adultos (18+) del
+hogar</td>
+<td align="left">Numérico; NA si no hay adultos con educación
+conocida</td>
+</tr>
+<tr class="odd">
+<td align="left">cv_educ_adultos</td>
+<td align="left">Creada</td>
+<td align="left">Coeficiente de variación (sd / media) de anos_educ_imp
+entre los adultos (18+) del hogar</td>
+<td align="left">Numérico &gt;= 0; NA si hay menos de 2 adultos con
+educación conocida; 0 si todos tienen 0 años</td>
+</tr>
+<tr class="even">
+<td align="left">cv_horas_ocupados</td>
+<td align="left">Creada</td>
+<td align="left">Coeficiente de variación de horas_trabajo_semana entre
+los ocupados del hogar</td>
+<td align="left">Numérico &gt;= 0; NA si hay menos de 2 ocupados</td>
+</tr>
+<tr class="odd">
 <td align="left">prop_mujer</td>
 <td align="left">Creada</td>
 <td align="left">Mujeres del hogar / personas_hogar</td>
 <td align="left">Entre 0 y 1</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">prop_ocupados_hogar</td>
 <td align="left">Creada</td>
 <td align="left">Ocupados del hogar / personas_hogar</td>
 <td align="left">Entre 0 y 1</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">arriendo_pc_sobre_lp</td>
 <td align="left">Creada</td>
 <td align="left">log(arriendo / personas_hogar / linea_pobreza);
 arriendo = arriendo_pagado o, si no paga, arriendo_estimado</td>
 <td align="left">Numérico; 0 = arriendo per cápita igual a la línea de
 pobreza; NA si no hay arriendo pagado ni estimado</td>
+</tr>
+<tr class="even">
+<td align="left">arriendo_imputado</td>
+<td align="left">Creada (P5090, P5130, P5100)</td>
+<td align="left">Arriendo que el DANE imputa como ingreso a los hogares
+que no pagan arriendo (entra en Ingpcug, que define pobre):
+arriendo_estimado si la vivienda es propia pagada o en usufructo;
+arriendo_estimado - cuota_amortizacion (mínimo 0; 0 si la cuota es NA)
+si la están pagando; 0 en las demás. Coincide con el del DANE en el
+98,4% de los hogares de train</td>
+<td align="left">Pesos; 0 si no aplica</td>
 </tr>
 <tr class="odd">
 <td align="left">linea_indigencia</td>
@@ -2349,10 +2413,10 @@ pobreza; NA si no hay arriendo pagado ni estimado</td>
 predictores</strong>.</p>
 <table>
 <colgroup>
-<col width="8%" />
-<col width="11%" />
-<col width="63%" />
-<col width="16%" />
+<col width="7%" />
+<col width="9%" />
+<col width="69%" />
+<col width="14%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -2401,6 +2465,13 @@ imputado. Define pobre e Indigente</td>
 <td align="left">Estrato socioeconómico (energía o sextil de ICV)</td>
 <td align="left">1 a 6</td>
 </tr>
+<tr class="odd">
+<td align="left">hogar_rico</td>
+<td align="left">Creada (Ingpcug)</td>
+<td align="left">Hogar en el 10% de mayor ingreso per cápita (de los
+hogares, sin factores de expansión). Define train_clean_sin_ricos</td>
+<td align="left">1 = sí, 0 = no</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -2427,7 +2498,7 @@ casi determinan <code>pobre</code>; solo se deja
 </div>
 <div id="chequeo-la-guía-está-al-día" class="section level2">
 <h2>Chequeo: ¿la guía está al día?</h2>
-<pre><code>## La guía documenta las 109 variables de train_clean.</code></pre>
+<pre><code>## La guía documenta las 118 variables de train_clean.</code></pre>
 </div>
 
 

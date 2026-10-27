@@ -1,0 +1,36 @@
+\begin{table}[H]
+\centering
+\caption{\label{tab:importancia_variables}Las 20 variables con mayor importancia por permutación en el mejor modelo (una variable a la vez; promedio de 5 folds y 3 permutaciones).}
+\centering
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\fontsize{9}{11}\selectfont
+\begin{tabular}[t]{lllll}
+\toprule
+Variable & Código & Caída del $F_1$ & D.E. & Ganancia (\%)\\
+\midrule
+Ingreso predicho + arriendo imputado, por persona sobre la línea (log; Tweedie) & \texttt{ing\_arr\_pc\_lp\_w} & 0,0434 & 0,0047 & 42,8\\
+Ingreso predicho por persona sobre la línea (log; con preguntas nuevas) & \texttt{log\_ing\_pred\_pc\_lp\_e} & 0,0227 & 0,0038 & 3,5\\
+Ingreso predicho por persona sobre la línea (log; preguntas nuevas, afinado) & \texttt{log\_ing\_pred\_pc\_lp\_f} & 0,0060 & 0,0026 & 8,7\\
+Probabilidad de ser pobre por persona, con preguntas nuevas (mínimo) & \texttt{pe\_min} & 0,0056 & 0,0027 & 6,5\\
+Tenencia de la vivienda & \texttt{tenencia} & 0,0039 & 0,0015 & 0,3\\
+\addlinespace
+Probabilidad de ingreso menor a 1,25 líneas (promedio) & \texttt{pc125\_media} & 0,0031 & 0,0013 & 0,1\\
+Probabilidad de ingreso menor a 0,8 líneas (mínimo) & \texttt{pc080\_min} & 0,0030 & 0,0015 & 3,0\\
+Probabilidad de ser pobre por persona, con preguntas nuevas (del jefe) & \texttt{pe\_jefe} & 0,0023 & 0,0014 & 3,1\\
+Probabilidad de ingreso menor a 1,25 líneas (del jefe) & \texttt{pc125\_jefe} & 0,0020 & 0,0011 & 0,3\\
+Probabilidad de ser pobre por persona, con preguntas nuevas (promedio) & \texttt{pe\_media} & 0,0019 & 0,0015 & 0,7\\
+\addlinespace
+Ingreso predicho por ocupado sobre la línea (con preguntas nuevas) & \texttt{ing\_pred\_por\_ocup\_e} & 0,0018 & 0,0007 & 0,2\\
+Cuartos por persona & \texttt{cuartos\_pc} & 0,0016 & 0,0010 & 0,2\\
+Participación del jefe en el ingreso predicho (con preguntas nuevas) & \texttt{prop\_ing\_jefe\_e} & 0,0016 & 0,0007 & 0,1\\
+Ingreso predicho por persona sobre la línea (log; afinado) & \texttt{log\_ing\_pred\_pc\_lp\_t} & 0,0014 & 0,0009 & 0,5\\
+Ingreso predicho por persona sobre la línea (log; Tweedie) & \texttt{log\_ing\_pred\_pc\_lp\_w} & 0,0014 & 0,0005 & 12,4\\
+\addlinespace
+Probabilidad de ingreso menor a 1,25 líneas (mínimo) & \texttt{pc125\_min} & 0,0014 & 0,0012 & 0,5\\
+Ciudad (dominio geográfico) & \texttt{dominio} & 0,0014 & 0,0008 & 0,2\\
+Primas, subsidios y bonificaciones por persona & \texttt{beneficios\_pc} & 0,0012 & 0,0009 & 0,2\\
+Mayor ingreso predicho de un miembro sobre la línea (Tweedie) & \texttt{max\_ing\_pred\_lp\_w} & 0,0012 & 0,0010 & 0,3\\
+Educación máxima de los adultos × ocupados por persona & \texttt{educ\_adultos\_x\_ocup\_pc} & 0,0012 & 0,0008 & 0,2\\
+\bottomrule
+\end{tabular}}
+\end{table}

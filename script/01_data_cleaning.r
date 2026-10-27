@@ -13,13 +13,15 @@
 # 4. Renombrar columnas
 # 5. Variables editadas
 # 6. Base aumentada (clases balanceadas)
-# 7. Guardar bases limpias
+# 7. Base sin los hogares más ricos
+# 8. Guardar bases limpias
 
 ################################################################################
 
 # Input:  Dataframes crudos de hogares e individuos; train_hogares.csv ,
 #         train_personas.csv , test_hogares.csv , test_personas.csv .
-# Output: train_clean.rds , test_clean.rds , train_clean_augmented.rds .
+# Output: train_clean.rds , test_clean.rds , train_clean_augmented.rds ,
+#         train_clean_sin_ricos.rds .
 
 ################################################################################
 
@@ -185,6 +187,19 @@ cruzar <- function(...) {
   do.call(paste, c(lapply(list(...), \(v) coalesce(as.character(v), "NA")), sep = "_"))
 }
 
+# Coeficiente de variación (sd / media) de los valores no NA de un hogar. NA si
+# hay menos de 2 valores (no hay con quién comparar); 0 si la media es 0 (todos
+# en 0, no hay variación).
+coef_var <- function(v) {
+  v <- v[!is.na(v)]
+  if (length(v) < 2) return(NA_real_)
+  if (mean(v) == 0) return(0)
+  sd(v) / mean(v)
+}
+
+# Máximo de los valores no NA; NA si no hay ninguno (max() daría -Inf).
+max_o_na <- function(v) if (all(is.na(v))) NA_real_ else max(v, na.rm = TRUE)
+
 # Misma edición para train y test, para que las variables coincidan.
 # Pasos en orden: cada uno puede usar las variables creadas en los anteriores.
 editar <- function(df) {
@@ -266,6 +281,40 @@ editar <- function(df) {
       # asimetría (arriendos de hasta $600M). NA si no hay ninguno de los dos.
       arriendo_pc_sobre_lp = log(coalesce(arriendo_pagado, arriendo_estimado) /
                                    personas_hogar / linea_pobreza),
+      # Arriendo imputado por el DANE a los hogares que no pagan arriendo, que
+      # entra en el ingreso que define la pobreza: Ingpcug = (ingresos de la
+      # unidad de gasto + arriendo imputado) / personas de la unidad de gasto.
+      # Propia pagada (1) y usufructo (4): el arriendo estimado; propia
+      # pagando (2): el estimado menos la cuota (0 si da negativo o si la
+      # cuota es NA); las demás tenencias, 0. Coincide con el del DANE
+      # (Ingtotugarr - Ingtotug) en el 98,4% de los hogares de train.
+      arriendo_imputado = case_when(
+        tenencia_vivienda %in% c(1, 4) ~ coalesce(arriendo_estimado, 0),
+        tenencia_vivienda == 2 & !is.na(cuota_amortizacion) ~
+          pmax(coalesce(arriendo_estimado, 0) - cuota_amortizacion, 0),
+        .default = 0
+      ),
+      # Dependientes (menores de 15 y mayores de 64, la definición estándar de
+      # la tasa de dependencia) sobre el total del hogar. prop_edad_trabajar no
+      # es una tasa de dependencia: edad_trabajar es 12+ en cabecera y 10+ en
+      # resto, sin límite superior, así que solo descuenta a los niños.
+      prop_dependientes = sum(anos < 15 | anos >= 65) / personas_hogar,
+      # Tasa de dependencia clásica: dependientes por cada persona de 15 a 64.
+      # NA si nadie en el hogar tiene entre 15 y 64 (p. ej. adultos mayores
+      # solos): la división sería por cero.
+      tasa_dependencia = if_else(sum(anos >= 15 & anos < 65) > 0,
+                                 sum(anos < 15 | anos >= 65) / sum(anos >= 15 & anos < 65),
+                                 NA),
+      # Educación de los adultos (18+): máxima y coeficiente de variación. Sin
+      # los niños, que tendrían poca educación solo por su edad.
+      educ_max_adultos = max_o_na(anos_educ_imp[anos >= 18]),
+      cv_educ_adultos  = coef_var(anos_educ_imp[anos >= 18]),
+      # Coeficiente de variación de las horas de trabajo de los ocupados.
+      cv_horas_ocupados = coef_var(horas_trabajo_semana[ocupado == 1]),
+      # Hacinamiento: personas por cuarto para dormir y por cuarto total
+      # (cuartos_hogar incluye sala-comedor). Los cuartos siempre son >= 1.
+      personas_por_dormitorio = personas_hogar / cuartos_dormir,
+      personas_por_cuarto     = personas_hogar / cuartos_hogar,
       # Indice de educación del hogar
       .by = id
     )
@@ -280,6 +329,13 @@ train_clean <- editar(train_clean) |>
   # digitación. Solo en train; test nunca se filtra (hay que predecirlo todo).
   filter(!cuartos_hogar %in% c(98, 43))
 test_clean  <- editar(test_clean)
+
+# Hogares más ricos: el 10% de los hogares (no de las personas, sin factores
+# de expansión) con mayor ingreso per cápita. Solo train, como ingreso: no es
+# un predictor. Se usa para entrenar sin ellos (sección 7). Va antes de la
+# sección 6 para que la base aumentada también la tenga.
+ingreso_p90 <- quantile(distinct(train_clean, id, ingreso)$ingreso, 0.9)
+train_clean <- mutate(train_clean, hogar_rico = as.integer(ingreso > ingreso_p90))
 ################################################################################
 
 ## 6. Base aumentada (clases balanceadas)
@@ -301,14 +357,30 @@ extra  <- n_no_pobres - veces * length(id_pobres)
 copias <- tibble(id = id_pobres,
                  copias = veces + seq_along(id_pobres) %in% sample(length(id_pobres), extra))
 
-train_clean_augmented <- bind_rows(
-  filter(train_clean, pobre == 0),
-  train_clean |> inner_join(copias, by = "id") |> uncount(copias)
-)
+# Los no pobres quedan con 1 copia. uncount() conserva el orden de train_clean
+# (las copias quedan juntas), así que unique(id) da el mismo orden de hogares y
+# los folds de los scripts de modelos son los mismos con cualquiera de las dos
+# bases.
+train_clean_augmented <- train_clean |>
+  left_join(copias, by = "id") |>
+  mutate(copias = coalesce(copias, 1L)) |>
+  uncount(copias)
 
 ################################################################################
 
-## 7. Guardar bases limpias
+## 7. Base sin los hogares más ricos
+
+# train_clean sin el 10% de hogares con mayor ingreso per cápita. Ojo al
+# evaluar: si los ricos también salen de la validación, el F1 se mide sobre
+# una población distinta a la de test. Los scripts de modelos (opción
+# "train_clean_sin_ricos") entrenan sin ellos pero validan con todos los
+# hogares, usando hogar_rico en train_clean.
+train_clean_sin_ricos <- filter(train_clean, hogar_rico == 0)
+
+################################################################################
+
+## 8. Guardar bases limpias
 write_rds(train_clean, here("data", "train_clean.rds"))
 write_rds(test_clean,  here("data", "test_clean.rds"))
 write_rds(train_clean_augmented, here("data", "train_clean_augmented.rds"))
+write_rds(train_clean_sin_ricos, here("data", "train_clean_sin_ricos.rds"))

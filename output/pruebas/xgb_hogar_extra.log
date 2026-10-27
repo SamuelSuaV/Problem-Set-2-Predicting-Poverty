@@ -1,0 +1,44 @@
+2026-10-23 00:21:21 - R² fuera de muestra del ingreso por persona (log1p Ingtot): 0.9418 
+2026-10-23 00:21:21 - Mejor conjunto de variables: H7_stacking_P - F1 = 0.7589 
+2026-10-23 00:21:21 - Mejor clasificador: A_depth6_mcw10_col06 - F1 = 0.7594 
+2026-10-23 00:21:23 - Combinación A_depth6_mcw10_col06 + R_mejor: w = 0.9  umbral = 0.36  F1 = 0.7600 
+                 prueba     f1 umbral auc     r2   iter variables minutos
+1  A_depth6_mcw10_col06 0.7594   0.37  NA     NA  463.2       130  0.4164
+2  A_depth4_mcw10_col08 0.7594   0.38  NA     NA  892.6       130  0.5766
+3  A_depth4_mcw50_col08 0.7593   0.36  NA     NA 1163.6       130  0.7141
+4           B_sin_ricos 0.7592   0.36  NA     NA  538.8       130  0.3753
+5  A_depth4_mcw10_col06 0.7592   0.38  NA     NA  990.2       130  0.6169
+6  A_depth4_mcw50_col06 0.7591   0.37  NA     NA 1017.6       130  0.6251
+7  A_depth8_mcw50_col08 0.7590   0.37  NA     NA  375.8       130  0.4349
+8  A_depth6_mcw10_col08 0.7590   0.36  NA     NA  490.8       130  0.4820
+9  A_depth8_mcw50_col06 0.7589   0.38  NA     NA  408.6       130  0.4518
+10        H7_stacking_P 0.7589   0.37  NA     NA  561.6       130  0.4379
+11 A_depth6_mcw50_col08 0.7589   0.37  NA     NA  561.6       130  0.4647
+12 A_depth6_mcw50_col06 0.7587   0.38  NA     NA  581.0       130  0.5206
+13 A_depth8_mcw10_col06 0.7583   0.38  NA     NA  279.4       130  0.3949
+14        H5_N3_dominio 0.7580   0.36  NA     NA  681.0       115  0.4226
+15 A_depth8_mcw10_col08 0.7579   0.35  NA     NA  312.0       130  0.3831
+16            H6_N1N2N3 0.7577   0.37  NA     NA  637.8       126  0.4717
+17      H3_N1_productos 0.7575   0.35  NA     NA  694.2       116  0.4446
+18             H1_V1aV4 0.7571   0.36  NA     NA  638.8       107  0.3744
+19        H4_N2_razones 0.7571   0.36  NA     NA  710.6       115  0.4378
+20          H2_nuestras 0.7568   0.33  NA     NA  715.8       110  0.4631
+21          B_aumentada 0.7536   0.58  NA     NA 3355.2       130  2.2625
+22              R_mejor 0.7533   0.34  NA 0.7033  141.4       130  0.2060
+23           H0_base01b 0.7528   0.38  NA     NA  758.8        94  0.3628
+24                 R_H2 0.7498   0.32  NA 0.7037  171.4       110  0.1760
+2026-10-23 00:21:32 - S_top25                      F1 = 0.7567  umbral = 0.39  AUC = NA  iter = 381  (0 min) 
+2026-10-23 00:21:44 - S_top50                      F1 = 0.7580  umbral = 0.37  AUC = NA  iter = 425  (0 min) 
+2026-10-23 00:22:01 - S_top75                      F1 = 0.7597  umbral = 0.38  AUC = NA  iter = 496  (0 min) 
+Warning messages:
+1: In n1 * n0 : NAs produced by integer overflow
+2: In n1 * n0 : NAs produced by integer overflow
+3: In n1 * n0 : NAs produced by integer overflow
+2026-10-23 00:22:18 - Umbral honesto y por zona: 
+       modelo               prueba  f1_cv f1_umbral_honesto f1_zona_honesto
+1          H0           H0_base01b 0.7528            0.7526          0.7520
+2  mejor_vars        H7_stacking_P 0.7589            0.7579          0.7575
+3   mejor_clf A_depth6_mcw10_col06 0.7594            0.7588          0.7588
+4   mejor_reg              R_mejor 0.7533            0.7525          0.7526
+5 combinacion              w = 0.9 0.7600            0.7600          0.7590
+2026-10-23 00:22:18 - === EXTRA TERMINADO 
