@@ -61,6 +61,14 @@ latex/*.log
 latex/*.out
 latex/*.toc
 latex/*.synctex.gz
+presentacion/*.aux
+presentacion/*.fdb_latexmk
+presentacion/*.fls
+presentacion/*.nav
+presentacion/*.out
+presentacion/*.snm
+presentacion/*.toc
+presentacion/*.synctex.gz
 
 # Logs de las corridas (se regeneran al correr cada script)
 *.log
