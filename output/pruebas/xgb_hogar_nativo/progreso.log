@@ -697,3 +697,52 @@
 2026-10-26 22:17:19 - Importancia por variable: fold 5 listo (152 min) 
 2026-10-26 22:17:20 - Importancia de extremo a extremo por variable de la persona (caída del F1): 
 2026-10-26 22:17:20 - === TERMINADO 
+2026-10-26 23:30:06 - R² fuera de muestra del ingreso por persona (log1p Ingtot): 0.9421 
+2026-10-26 23:30:06 - R² del ingreso predicho (validación): 
+2026-10-26 23:30:07 - AUC por hogar del clasificador por persona (validación): 
+2026-10-26 23:30:07 - Mejor conjunto de variables: H7_stacking_P - F1 = 0.76 
+2026-10-26 23:30:07 - Mejor clasificador (5.1-5.4): A_depth6_mcw10_col08 - F1 = 0.7609 
+2026-10-26 23:30:07 - Mejor clasificador: G_eta002_depth6_col08 - F1 = 0.7612 
+2026-10-26 23:30:09 - Modelo por persona (P): F1 = 0.7110  umbral = 0.31 
+2026-10-26 23:30:17 - Combinación G_eta002_depth6_col08 + R_mejor: w = 0.9  umbral = 0.35  F1 = 0.7614 
+2026-10-26 23:31:08 - Combinación de 3 (clasificador 0.9, regresión 0.1, persona -0.0): umbral = 0.35  F1 = 0.7614 
+2026-10-26 23:31:43 - Umbral honesto y por zona: 
+2026-10-26 23:31:52 - Eliminación de variables poco importantes: 
+2026-10-26 23:31:55 - Afinamiento con pocas variables (mejor de cada una): 
+2026-10-26 23:32:04 - Ingreso mejorado, indigencia e índices: 
+2026-10-26 23:32:08 - Clasificador por persona afinado, preguntas no usadas y cortes: 
+2026-10-26 23:32:15 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2 + R_mejor: w = 0.9  umbral = 0.38  F1 = 0.7717 
+2026-10-26 23:32:22 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2 + R_G_eta002_depth6_col08_V4_mas_V4t_todo2: w = 0.6  umbral = 0.38  F1 = 0.7723 
+2026-10-26 23:32:30 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2 + R_G_eta002_depth6_col08_V4_mas_V4t_todo2_peso: w = 0.4  umbral = 0.38  F1 = 0.7725 
+2026-10-26 23:32:37 - Pesos cerca de la línea y regresión: 
+2026-10-26 23:32:48 - Ingreso V4f, hiperparámetros y selección con el modelo nuevo: 
+2026-10-26 23:32:51 - Arriendo imputado e ingreso Tweedie: 
+2026-10-26 23:32:58 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_mejor: w = 1.0  umbral = 0.37  F1 = 0.7772 
+2026-10-26 23:33:05 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_G_eta002_depth6_col08_V4_mas_V4t_todo2: w = 1.0  umbral = 0.37  F1 = 0.7772 
+2026-10-26 23:33:12 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_G_eta002_depth6_col08_V4_mas_V4t_todo2_peso: w = 0.7  umbral = 0.39  F1 = 0.7775 
+2026-10-26 23:33:19 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w: w = 0.8  umbral = 0.37  F1 = 0.7775 
+2026-10-26 23:33:22 - Tweedie afinado y regresión con el mejor modelo: 
+2026-10-26 23:33:22 - Mejor modelo: G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w - F1 = 0.7772 
+2026-10-26 23:34:16 - Submission: XGBH_nativo_G_eta002_depth6_col08_threshold_035.csv - % pobres en test: 24.4 
+2026-10-26 23:35:04 - Submission: XGBH_nativo_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w_threshold_037.csv - % pobres en test: 22.9 
+2026-10-26 23:35:11 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_G_eta002_depth6_col08_V4_mas_V4t_todo2_peso: w = 0.7  umbral = 0.39  F1 = 0.7775 
+2026-10-26 23:35:46 - Submission: XGBH_nativo_comb_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w_R_G_eta002_depth6_col08_V4_mas_V4t_todo2_peso_w07_threshold_039.csv - % pobres en test: 22.3 
+2026-10-26 23:36:22 - Submission: XGBH_nativo_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_top75_threshold_04.csv - % pobres en test: 22.3 
+2026-10-26 23:36:32 - Submission: XGBH_nativo_comb_G_eta002_depth6_col08_R_mejor_w09_threshold_035.csv - % pobres en test: 24.3 
+2026-10-26 23:36:32 - Comparación de codificaciones (F1): 
+2026-10-26 23:36:39 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + RF_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w_mtry30_nodo50: w = 0.7  umbral = 0.37  F1 = 0.7773 
+2026-10-26 23:37:23 - Random forest y combinación: 
+2026-10-26 23:41:19 - Submission: RFH_nativo_mtry30_nodo50_threshold_04.csv - % pobres en test: 22.3 
+2026-10-26 23:41:20 - Errores del mejor modelo G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w por grupo: 
+2026-10-26 23:41:20 - Errores cerca de la línea (|log(ingreso / línea)| < banda): 
+2026-10-26 23:41:21 - Modelo especialista para los hogares dudosos: 
+2026-10-26 23:42:15 - Submission: XGBH_nativo_G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w_especialista_z10_85_promedio_threshold_037.csv - % pobres en test: 22.9 
+2026-10-26 23:42:47 - F1 del mejor modelo con otras particiones: 
+2026-10-26 23:42:57 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + logit_main: w = 1.0  umbral = 0.37  F1 = 0.7772 
+2026-10-26 23:44:22 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_G_eta002_depth6_col08_V4_mas_V4t_todo2_peso: w = 0.7  umbral = 0.39  F1 = 0.7775 
+2026-10-26 23:44:34 - Combinación con el logit de main: 
+2026-10-26 23:44:44 - Combinación G_eta002_depth6_col08_V4_mas_V4t_todo2_mas_V4f_af_depth8_mcw50_col05_V4w + R_G_eta002_depth6_col08_V4_mas_V4t_todo2_peso: w = 0.7  umbral = 0.39  F1 = 0.7775 
+2026-10-26 23:44:44 - Importancia por permutación (caída del F1): 
+2026-10-26 23:44:44 - Importancia de extremo a extremo por concepto (caída del F1): 
+2026-10-26 23:44:44 - Importancia de extremo a extremo por variable de la persona (caída del F1): 
+2026-10-26 23:44:44 - === TERMINADO 
