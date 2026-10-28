@@ -32,6 +32,8 @@ Rscript -e "source('script/07_boosting.r', encoding = 'UTF-8')"   # LightGBM: gr
 Rscript -e "source('script/07b_boosting_variables.r', encoding = 'UTF-8')"   # LightGBM con variables nuevas e ingreso predicho + ensamble con logit 06 (~52 min)
 Rscript -e "source('script/07c_boosting_ingreso.r', encoding = 'UTF-8')"     # LightGBM con variables auxiliares predichas (CV anidada), reajuste y semillas (~65 min, 20 núcleos)
 Rscript -e "source('script/10_lpm.r', encoding = 'UTF-8')"                   # modelo lineal de probabilidad (~19 min)
+Rscript script/11_figuras_presentacion.r  # figuras y datos (.dat) de las presentaciones de presentacion/: predictores, nube 3D, métricas y ROC de los 8 modelos, F1 vs. umbral, errores vs. distancia a la línea y F1 vs. número de variables por algoritmo (~1-2 h; retoma desde output/pruebas/f1_vs_k/). Lee las predicciones fuera de muestra de ps2_predicciones_fuera_de_muestra/ (carpeta compartida, ignorada en git)
+cd presentacion && latexmk -pdf best_equipo_04.tex && latexmk -pdf compare_equipo_04.tex && latexmk -c   # presentaciones (pgfplots lee ../output/tables/presentacion/*.dat)
 Rscript -e 'rmarkdown::render("documentation/guia_variables.Rmd")'   # compila la guía y verifica que esté al día
 cd latex && latexmk -pdf resultados.tex   # documento de resultados
 cd latex && latexmk -pdf estructura_modelo_slide.tex   # diagrama simplificado del modelo final para slides (el comando para pasarlo a PNG de 600 dpi está en su encabezado)
