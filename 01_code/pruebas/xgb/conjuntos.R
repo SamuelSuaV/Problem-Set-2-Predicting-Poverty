@@ -3,7 +3,7 @@
 # 3, sin las pruebas) y guarda cada resultado al terminar. Correr desde la raíz:
 #   Rscript 01_code/pruebas/xgb/conjuntos.R
 codigo <- readLines("01_code/10_xgboost_persona.R")
-eval(parse(text = codigo[seq_len(grep("^# 4. Pruebas", codigo) - 1)]))
+eval(parse(text = codigo[seq_len(grep("^# 4. Pruebas -", codigo) - 1)]))
 
 conjuntos <- list(x2 = x2, x3 = x3)
 for (b in c("train_clean", "train_clean_augmented", "train_clean_sin_ricos")) {

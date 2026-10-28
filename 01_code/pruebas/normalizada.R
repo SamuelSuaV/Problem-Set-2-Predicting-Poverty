@@ -5,7 +5,7 @@
 # Correr desde la raíz:  Rscript 01_code/pruebas/normalizada.R
 Sys.setenv(NORMALIZAR = "1", CODIFICACION = "nativo")
 codigo <- readLines("01_code/11_xgboost_hogar.R")
-eval(parse(text = codigo[seq_len(grep("^# 5. Pruebas", codigo) - 1)]))
+eval(parse(text = codigo[seq_len(grep("^# 5. Pruebas -", codigo) - 1)]))
 
 umbral_honesto <- function(prob) {
   tabla <- sapply(

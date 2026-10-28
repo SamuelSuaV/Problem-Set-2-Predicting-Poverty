@@ -3,7 +3,7 @@
 # pruebas) y guarda cada resultado al terminar. Correr desde la raíz del repo:
 #   Rscript 01_code/pruebas/xgb/bases.R
 codigo <- readLines("01_code/10_xgboost_persona.R")
-eval(parse(text = codigo[seq_len(grep("^# 4. Pruebas", codigo) - 1)]))
+eval(parse(text = codigo[seq_len(grep("^# 4. Pruebas -", codigo) - 1)]))
 
 for (b in c("train_clean", "train_clean_augmented", "train_clean_sin_ricos")) {
   archivo <- file.path("02_outputs/pruebas/xgb", paste0("bases_", b, ".rds"))
