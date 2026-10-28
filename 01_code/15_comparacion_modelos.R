@@ -27,10 +27,10 @@
 #         02_outputs/logs/logit_interacciones/logit_oof.rds
 #         (08_logit_interacciones).
 # Output: 02_outputs/pruebas/comparacion/: predicciones fuera de muestra de los
-#         modelos por persona (.rds) y resultados (resultados.rds);
-#         02_outputs/tables/modelos_f1.tex , 02_outputs/tables/equidad_mejor.tex
-#         ,
-#         02_outputs/tables/equidad_brechas.tex ;
+#         modelos por persona (.rds), las de los 8 modelos para 16
+#         (predicciones_oof.rds) y resultados (resultados.rds);
+#         02_outputs/tables/modelos_f1.tex , equidad_mejor.tex ,
+#         equidad_brechas.tex ;
 #         02_outputs/tables/importancia_grupos.tex ,
 #         importancia_variables.tex , importancia_directas.tex ,
 #         importancia_conceptos.tex , importancia_variables_e2e.tex ;
@@ -260,6 +260,27 @@ modelos <- mutate(modelos, pred = map2(prob, umbral, ~ as.integer(.x > .y)))
 print(
   select(modelos, categoria, modelo, f1_script, f1, f1_honesto, umbral),
   n = Inf
+)
+
+# Probabilidades fuera de muestra y umbral de cada modelo, para las figuras de
+# las presentaciones (16).
+claves_oof <- paste0("prob_", c(
+  "naive_bayes", "cart", "xgboost_persona", "logit_lasso",
+  "xgboost_hogar_base", "xgboost_hogar_sin_tweedie", "random_forest_hogar",
+  "modelo_final"
+))
+saveRDS(
+  list(
+    oof = tibble(
+      id = hog$id, pobre = y, fold = fold,
+      !!!set_names(modelos$prob, claves_oof)
+    ),
+    modelos = tibble(
+      columna = claves_oof, umbral = modelos$umbral,
+      f1 = modelos$f1
+    )
+  ),
+  file.path(dir_out, "predicciones_oof.rds")
 )
 
 # 5. Desempeño por grupo de población -----------------------------------------

@@ -23,6 +23,7 @@ data/*.csv
 02_outputs/predictions/*.csv
 02_outputs/logs/
 02_outputs/pruebas/
+ps2_predicciones_fuera_de_muestra/
 *.log
 
 # Archivos auxiliares de LaTeX (el PDF sí se versiona)

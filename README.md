@@ -48,7 +48,7 @@ PRUEBA=1 Rscript 01_code/00_rundirectory.R
 .
 ├── 01_code/
 │   ├── 00_rundirectory.R       # corre todo en orden
-│   ├── 01_ ... 15_*.R          # un script por tarea (ver abajo)
+│   ├── 01_ ... 16_*.R          # un script por tarea (ver abajo)
 │   ├── functions/
 │   │   └── funciones_comunes.R # F1, probabilidad por hogar, umbral, etc.
 │   └── pruebas/                # pruebas exploratorias que no entran al flujo principal
@@ -57,11 +57,11 @@ PRUEBA=1 Rscript 01_code/00_rundirectory.R
 │   ├── tables/                 # tablas (.tex)
 │   ├── predictions/            # predicciones para Kaggle (.csv)
 │   ├── logs/                   # resultados intermedios de los modelos por hogar
-│   └── pruebas/                # resultados guardados de 11 y 15 (para retomar)
+│   └── pruebas/                # resultados guardados de 11, 15 y 16 (para retomar)
 ├── data/                       # CSV crudos (no se versionan) y bases limpias (.rds)
 ├── documentation/              # enunciado, diccionario del DANE y guía de variables
 ├── latex/                      # documento de resultados
-└── presentacion/               # presentaciones
+└── presentacion/               # presentaciones (beamer) y su narrativa
 ```
 
 ## Scripts
@@ -83,6 +83,7 @@ PRUEBA=1 Rscript 01_code/00_rundirectory.R
 | `13_lightgbm_variables.R` | LightGBM con variables nuevas e ingreso predicho. |
 | `14_lightgbm_ingreso.R` | LightGBM con modelos auxiliares del ingreso. |
 | `15_comparacion_modelos.R` | Compara el mejor modelo de cada familia con los mismos folds y el desempeño por grupo de población. |
+| `16_figuras_presentacion.R` | Figuras y datos de las presentaciones: predictores, nube 3D, matriz de confusión y ROC de los 8 modelos, F1 según el umbral y según el número de variables. |
 
 Todos los modelos escogen sus hiperparámetros y el umbral de clasificación por
 F1 en validación cruzada, con folds por hogar: todas las personas de un hogar
@@ -95,19 +96,23 @@ cada script resumen sus resultados.
   modelos (`modelos_f1.tex`), equidad por grupo (`equidad_*.tex`), importancia
   de las variables (`importancia_*.tex`) y tablas de cada familia de modelos.
 - `02_outputs/figures/`: ingreso por variable, F1 del logit por número de
-  variables, importancia y errores por grupo.
+  variables, importancia y errores por grupo; las que empiezan por `pres_` son
+  de las presentaciones (16).
 - `02_outputs/predictions/`: una predicción por modelo con el formato de
   Kaggle (`id`, `pobre`; una fila por hogar de test). El nombre dice el modelo
   y sus hiperparámetros, p. ej. `NB_laplace_0_threshold_045.csv`. Se generan al
   correr los scripts y no se versionan.
+- `02_outputs/tables/presentacion/`: datos (`.dat`) de las gráficas de las
+  presentaciones (16).
 - `latex/resultados.tex` lee las tablas y figuras de `02_outputs/`; se compila
-  con `cd latex && latexmk -pdf resultados.tex`.
+  con `cd latex && latexmk -pdf resultados.tex`. Las presentaciones, con
+  `cd presentacion && latexmk -pdf best_equipo_04.tex compare_equipo_04.tex`.
 
 ## Software
 
 R 4.6.1. Paquetes (se instalan con `pacman::p_load()`): tidyverse 2.0.0,
 here 1.0.2, e1071 1.7.17, rpart 4.1.27, caret 7.0.1, xgboost 3.2.1.1,
 lightgbm 4.7.0, ranger 0.18.0, glmnet 5.1, doParallel 1.0.17, callr 3.8.0,
-knitr 1.52 y kableExtra 1.4.1. xgboost debe ser 3.x: `10_xgboost_persona.R`
+knitr 1.52, kableExtra 1.4.1, plot3D y plotly. xgboost debe ser 3.x: `10_xgboost_persona.R`
 define su propio modelo para caret porque el `xgbTree` de caret no funciona con
 esa versión.

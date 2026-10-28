@@ -25,8 +25,7 @@
 # corren completos porque los demás usan sus bases.
 #
 # Las funciones comunes de los modelos están en funciones_comunes.R. El
-# documento
-# de resultados (latex/) se compila aparte.
+# documento de resultados (latex/) y las presentaciones se compilan aparte.
 
 # 1. Cargar librerías ---------------------------------------------------------
 
@@ -53,7 +52,8 @@ scripts <- c(
   "12_lightgbm",
   "13_lightgbm_variables",
   "14_lightgbm_ingreso",
-  "15_comparacion_modelos" # compara los modelos anteriores
+  "15_comparacion_modelos", # compara los modelos anteriores
+  "16_figuras_presentacion" # figuras y datos de las presentaciones
 )
 
 # 3. Correr los scripts -------------------------------------------------------
