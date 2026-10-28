@@ -1,3 +1,0 @@
-16 variables - train_clean - nrounds = 500 - max_depth = 8 - eta = 0.05 - min_child_weight = 10 - umbral = 0.31 - F1 = 0.6934 
-Guardado: XGB_nrounds_500_depth_8_eta_005_threshold_031.csv - 66168 hogares
-=== listo train_clean - 97 min

@@ -1,8 +1,0 @@
-2026-10-23 21:07:13 - Base normalizada: 92 variables numéricas estandarizadas 
-2026-10-23 21:07:16 - R² fuera de muestra del ingreso por persona (log1p Ingtot): 0.9421 
-2026-10-23 21:08:34 - G_eta002_depth6_col08        F1 = 0.7608  umbral = 0.33  AUC = 0.9537  iter = 941  (1 min) 
-2026-10-23 21:09:27 - E_top75_75vars               F1 = 0.7603  umbral = 0.35  AUC = 0.9537  iter = 953  (1 min) 
-2026-10-23 21:09:48 - R_mejor                      F1 = 0.7551  umbral = 0.35  AUC = 0.9454  R2 = 0.7075  RMSE = 0.6810  iter = 183  (0 min) 
-2026-10-23 21:09:49 - Combinación G_eta002_depth6_col08 + R_mejor: w = 0.9  umbral = 0.35  F1 = 0.7614 
-2026-10-23 21:09:51 - Combinación G_eta002_depth6_col08 + R_mejor: w = 0.9  umbral = 0.33  F1 = 0.7612 
-2026-10-23 21:09:55 - Base normalizada frente a la original: 

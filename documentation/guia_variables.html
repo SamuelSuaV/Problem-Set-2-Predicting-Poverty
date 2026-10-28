@@ -1490,15 +1490,20 @@ Valle</h4>
 <div id="cómo-usar-esta-guía" class="section level2">
 <h2>Cómo usar esta guía</h2>
 <ul>
-<li>Las bases limpias salen de <code>script/01_data_cleaning.r</code>,
+<li>Las bases limpias salen de <code>01_code/01_data_cleaning.R</code>,
 que guarda <code>data/train_clean.rds</code> y
 <code>data/test_clean.rds</code>. Para cargarlas:
 <code>train &lt;- read_rds(here(&quot;data&quot;, &quot;train_clean.rds&quot;))</code>.</li>
 <li><strong>Unidad de observación: persona.</strong> Cada fila es una
 persona; las variables del hogar se repiten para todas las personas del
 mismo <code>id</code>.</li>
+<li><strong>Bases a nivel hogar:</strong>
+<code>01_code/02_bases_hogar.R</code> guarda
+<code>data/train_hogar.rds</code> y <code>data/test_hogar.rds</code>,
+con una fila por hogar y agregados de sus miembros (sección <a href="#bases-a-nivel-hogar">Bases a nivel hogar</a> al final). Las usa
+<code>01_code/06_logit.R</code>.</li>
 <li><strong>Todo cambio a una variable se hace en
-<code>01_data_cleaning.r</code></strong> (no en los scripts de análisis)
+<code>01_data_cleaning.R</code></strong> (no en los scripts de análisis)
 <strong>y se actualiza esta guía.</strong> Al compilarla, la última
 sección avisa si alguna variable de la base no está documentada
 aquí.</li>
@@ -2496,9 +2501,703 @@ casi determinan <code>pobre</code>; solo se deja
 <code>ingreso</code>.</li>
 </ul>
 </div>
+<div id="bases-a-nivel-hogar" class="section level2">
+<h2>Bases a nivel hogar</h2>
+<p><code>train_hogar</code> y <code>test_hogar</code>
+(<code>01_code/02_bases_hogar.R</code>) tienen <strong>una fila por
+hogar</strong>. Se construyen desde <code>train_clean</code> y
+<code>test_clean</code> ya editadas, con la misma función para
+ambas.</p>
+<ul>
+<li><strong>Unidad de gasto:</strong> los conteos y proporciones
+excluyen al servicio doméstico, pensionistas y trabajadores
+(<code>parentesco_jefe_hogar</code> 6 a 8), porque <code>ingreso</code>
+(y por lo tanto <code>pobre</code>) es per cápita de la unidad de gasto.
+<code>_pc</code> = dividido por <code>n_ug</code>.</li>
+<li><strong>Sin <code>NA</code>:</strong> quien no responde una pregunta
+porque no aplica (p. ej. las de trabajo para no ocupados) cuenta como 0
+en los conteos. Las variables del jefe usan 0 cuando el jefe no está
+ocupado o no está afiliado.</li>
+<li><strong>Ocupado</strong> (<code>ocup</code>) = <code>ocupado</code>
+= 1 y en la unidad de gasto. <strong>Formal</strong> = ocupado que
+cotiza a pensión (<code>cotiza_pension</code> = 1).</li>
+</ul>
+<div id="identificadores-y-ubicación" class="section level3">
+<h3>Identificadores y ubicación</h3>
+<table>
+<colgroup>
+<col width="11%" />
+<col width="63%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">id</td>
+<td align="left">Llave del hogar</td>
+<td align="left">Texto</td>
+</tr>
+<tr class="even">
+<td align="left">pobre</td>
+<td align="left">Hogar pobre (solo train). <strong>Variable a
+predecir.</strong></td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">dominio</td>
+<td align="left">dominio</td>
+<td align="left">Texto</td>
+</tr>
+<tr class="even">
+<td align="left">depto</td>
+<td align="left">depto</td>
+<td align="left">Código DANE (texto)</td>
+</tr>
+<tr class="odd">
+<td align="left">cabecera</td>
+<td align="left">cabecera</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">log_lp</td>
+<td align="left">log(linea_pobreza)</td>
+<td align="left">Numérico</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="demografía" class="section level3">
+<h3>Demografía</h3>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="76%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">n_ug</td>
+<td align="left">Personas en la unidad de gasto
+(personas_unidad_gasto)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">log_n_ug</td>
+<td align="left">log(n_ug)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">n_menor6</td>
+<td align="left">Menores de 6 años</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_menor12</td>
+<td align="left">Menores de 12 años</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_menor18</td>
+<td align="left">Menores de 18 años</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_mayor65</td>
+<td align="left">Personas de 65 años o más</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">dependencia</td>
+<td align="left">(menores de 18 + mayores de 65) / personas de 18 a 64
+(mínimo 1 en el denominador)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">prop_menores</td>
+<td align="left">n_menor18 / n_ug</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="odd">
+<td align="left">prop_mujer_ug</td>
+<td align="left">Proporción de mujeres en la unidad de gasto</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="trabajo" class="section level3">
+<h3>Trabajo</h3>
+<table>
+<colgroup>
+<col width="20%" />
+<col width="67%" />
+<col width="12%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">n_ocup</td>
+<td align="left">Ocupados</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">ocup_pc</td>
+<td align="left">n_ocup / n_ug</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="odd">
+<td align="left">ocup_por_adulto</td>
+<td align="left">n_ocup / adultos (18+)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">n_desocup</td>
+<td align="left">Desocupados</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">desocup_pc</td>
+<td align="left">n_desocup / n_ug</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="even">
+<td align="left">n_inactivo_adulto</td>
+<td align="left">Inactivos de 18 a 64 años</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">horas_pc</td>
+<td align="left">Horas semanales trabajadas (principal + segundo
+trabajo) / n_ug</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">horas_formal_pc</td>
+<td align="left">Horas de los ocupados formales / n_ug</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">horas_informal_pc</td>
+<td align="left">Horas de los ocupados informales / n_ug</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">n_segundo_trab</td>
+<td align="left">Personas con segundo trabajo</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_quiere_mas_horas</td>
+<td align="left">Personas que quieren trabajar más horas</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_oficios_hogar</td>
+<td align="left">Adultos que la semana pasada se dedicaron a oficios del
+hogar</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_estudia</td>
+<td align="left">Personas que la semana pasada estudiaron</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_pareja_ocup</td>
+<td align="left">Ocupados que son pareja del jefe</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_hijos_ocup</td>
+<td align="left">Ocupados que son hijos del jefe</td>
+<td align="left">Entero</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="calidad-del-empleo" class="section level3">
+<h3>Calidad del empleo</h3>
+<table style="width:100%;">
+<colgroup>
+<col width="16%" />
+<col width="73%" />
+<col width="10%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">n_formal</td>
+<td align="left">Ocupados formales</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">formal_pc</td>
+<td align="left">n_formal / n_ug</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="odd">
+<td align="left">prop_formal_ocup</td>
+<td align="left">n_formal / n_ocup (0 si nadie trabaja)</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="even">
+<td align="left">n_asalariado</td>
+<td align="left">Ocupados obreros o empleados de empresa particular</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_gobierno</td>
+<td align="left">Ocupados empleados del gobierno</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_domestico</td>
+<td align="left">Ocupados empleados domésticos</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_cuenta_propia</td>
+<td align="left">Ocupados por cuenta propia</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_patron</td>
+<td align="left">Ocupados patrones o empleadores</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_sin_pago</td>
+<td align="left">Ocupados sin remuneración (posiciones 6 y 7)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_jornalero</td>
+<td align="left">Ocupados jornaleros o peones</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_empresa_sola</td>
+<td align="left">Ocupados que trabajan solos (tamano_empresa 1)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_empresa_peq</td>
+<td align="left">Ocupados en empresas de 2 a 5 personas</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_empresa_grande</td>
+<td align="left">Ocupados en empresas de 51 personas o más</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">beneficios_pc</td>
+<td align="left">Primas, subsidios y bonificaciones que reciben los
+miembros (10 preguntas sí/no) / n_ug</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">n_con_beneficios</td>
+<td align="left">Personas con al menos una prima, subsidio o
+bonificación</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_horas_extra</td>
+<td align="left">Personas que recibieron horas extra</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">max_log_meses</td>
+<td align="left">Máximo log_meses_empresa entre los ocupados (0 si nadie
+trabaja)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">n_of_profesional</td>
+<td align="left">Ocupados con oficio profesional o técnico (CIUO-68,
+primer dígito 0-1)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_of_directivo</td>
+<td align="left">Ocupados directivos (primer dígito 2)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_of_administrativo</td>
+<td align="left">Ocupados administrativos (primer dígito 3)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_of_comercio</td>
+<td align="left">Ocupados comerciantes y vendedores (primer dígito
+4)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_of_servicios</td>
+<td align="left">Ocupados en servicios (primer dígito 5)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_of_agro</td>
+<td align="left">Ocupados agropecuarios (primer dígito 6)</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_of_obrero</td>
+<td align="left">Ocupados obreros y operarios (primer dígito 7-9)</td>
+<td align="left">Entero</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="salud" class="section level3">
+<h3>Salud</h3>
+<table>
+<colgroup>
+<col width="20%" />
+<col width="65%" />
+<col width="13%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">prop_contributivo</td>
+<td align="left">Proporción de la unidad de gasto en régimen
+contributivo</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="even">
+<td align="left">prop_subsidiado</td>
+<td align="left">Proporción de la unidad de gasto en régimen
+subsidiado</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="odd">
+<td align="left">n_especial</td>
+<td align="left">Personas en régimen especial</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">n_no_afiliado</td>
+<td align="left">Personas no afiliadas a salud</td>
+<td align="left">Entero</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="educación" class="section level3">
+<h3>Educación</h3>
+<table>
+<colgroup>
+<col width="20%" />
+<col width="67%" />
+<col width="12%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">educ_max</td>
+<td align="left">Máximo anos_educ_imp del hogar</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">educ_media_adultos</td>
+<td align="left">Promedio de anos_educ_imp de los adultos</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">educ_ocup_media</td>
+<td align="left">Promedio de anos_educ_imp de los ocupados (0 si nadie
+trabaja)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">educ_ocup_suma_pc</td>
+<td align="left">Suma de anos_educ_imp de los ocupados / n_ug</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">prop_superior</td>
+<td align="left">Proporción de adultos con educación superior</td>
+<td align="left">Entre 0 y 1</td>
+</tr>
+<tr class="even">
+<td align="left">n_sin_educ</td>
+<td align="left">Adultos sin educación o solo preescolar</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">n_ocup_superior</td>
+<td align="left">Ocupados con educación superior</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">superior_formal_pc</td>
+<td align="left">Ocupados formales con educación superior / n_ug</td>
+<td align="left">Numérico</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="jefe-del-hogar" class="section level3">
+<h3>Jefe del hogar</h3>
+<table>
+<colgroup>
+<col width="17%" />
+<col width="49%" />
+<col width="32%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">jefe_edad</td>
+<td align="left">Edad del jefe</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="even">
+<td align="left">jefe_edad2</td>
+<td align="left">jefe_edad al cuadrado</td>
+<td align="left">Entero</td>
+</tr>
+<tr class="odd">
+<td align="left">jefe_mujer</td>
+<td align="left">El jefe es mujer</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">jefe_mujer_sola</td>
+<td align="left">Jefe mujer y sin pareja en el hogar</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">jefe_educ</td>
+<td align="left">anos_educ_imp del jefe</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">jefe_ocup</td>
+<td align="left">El jefe está ocupado</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">jefe_formal</td>
+<td align="left">El jefe es ocupado formal</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">jefe_desocup</td>
+<td align="left">El jefe está desocupado</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">jefe_log_meses</td>
+<td align="left">log_meses_empresa del jefe (0 si no trabaja)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">jefe_posicion</td>
+<td align="left">posicion_ocupacional del jefe</td>
+<td align="left">Códigos DANE; 0 = no ocupado</td>
+</tr>
+<tr class="odd">
+<td align="left">jefe_regimen</td>
+<td align="left">regimen_salud del jefe</td>
+<td align="left">Códigos DANE; 0 = no afiliado</td>
+</tr>
+<tr class="even">
+<td align="left">jefe_tamano</td>
+<td align="left">tamano_empresa del jefe</td>
+<td align="left">Códigos DANE; 0 = no ocupado</td>
+</tr>
+<tr class="odd">
+<td align="left">jefe_oficio</td>
+<td align="left">oficio del jefe (CIUO-68, 2 dígitos)</td>
+<td align="left">Código; 0 = no ocupado</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="ingresos-no-laborales" class="section level3">
+<h3>Ingresos no laborales</h3>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="69%" />
+<col width="14%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">any_pension</td>
+<td align="left">Algún miembro es pensionado o recibe pensión de
+jubilación</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">any_arriendos</td>
+<td align="left">Algún miembro recibe arriendos o pensiones</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">any_intereses</td>
+<td align="left">Algún miembro recibe intereses o dividendos</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">any_exterior</td>
+<td align="left">Algún miembro recibe dinero del exterior</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">any_hogares_pais</td>
+<td align="left">Algún miembro recibe dinero de otros hogares del
+país</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">any_ayudas</td>
+<td align="left">Algún miembro recibe ayudas de instituciones</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">any_cesantias</td>
+<td align="left">Algún miembro recibe cesantías</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">any_pension_alim</td>
+<td align="left">Algún miembro recibe pensión alimenticia</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">any_otros_ing</td>
+<td align="left">Algún miembro recibe otros ingresos
+(recibio_otros_ingresos)</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">n_fuentes_no_lab</td>
+<td align="left">any_pension + any_arriendos + any_intereses +
+any_exterior + any_cesantias</td>
+<td align="left">Entero de 0 a 5</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="vivienda" class="section level3">
+<h3>Vivienda</h3>
+<table>
+<colgroup>
+<col width="16%" />
+<col width="72%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Descripción</th>
+<th align="left">Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">tenencia</td>
+<td align="left">tenencia_vivienda</td>
+<td align="left">Códigos DANE</td>
+</tr>
+<tr class="even">
+<td align="left">cuartos_pc</td>
+<td align="left">cuartos_hogar / personas_hogar</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">pers_por_dormitorio</td>
+<td align="left">personas_hogar / cuartos_dormir</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="even">
+<td align="left">log_arriendo_pc_lp</td>
+<td align="left">arriendo_pc_sobre_lp; los NA se imputan con la mediana
+de train (en train y en test)</td>
+<td align="left">Numérico</td>
+</tr>
+<tr class="odd">
+<td align="left">arriendo_na</td>
+<td align="left">No había arriendo pagado ni estimado
+(log_arriendo_pc_lp imputado)</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="even">
+<td align="left">arriendo_es_pagado</td>
+<td align="left">El arriendo es pagado (no estimado)</td>
+<td align="left">1/0</td>
+</tr>
+<tr class="odd">
+<td align="left">log_cuota_pc_lp</td>
+<td align="left">log(cuota_amortizacion / personas_hogar /
+linea_pobreza); 0 si no paga cuota</td>
+<td align="left">Numérico</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div id="chequeo-la-guía-está-al-día" class="section level2">
 <h2>Chequeo: ¿la guía está al día?</h2>
-<pre><code>## La guía documenta las 118 variables de train_clean.</code></pre>
+<pre><code>## La guía documenta las 118 variables de train_clean.rds</code></pre>
+<pre><code>## La guía documenta las 96 variables de train_hogar.rds</code></pre>
 </div>
 
 

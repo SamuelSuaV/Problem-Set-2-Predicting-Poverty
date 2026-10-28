@@ -2,9 +2,9 @@
 % Predicting Poverty — Presentación del mejor modelo (equipo 04)
 % Autores: Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
 % Compilar desde presentacion/:  latexmk -pdf best_equipo_04.tex
-% Figuras: ../output/figures/ (generadas por 02, 05b y 06; el diagrama del
+% Figuras: ../02_outputs/figures/ (generadas por 03, 11 y 15; el diagrama del
 % modelo viene de latex/estructura_modelo_slide.tex).
-% Números: latex/resultados.tex y output/tables/*.tex (rama carts_and_forests).
+% Números: latex/resultados.tex y 02_outputs/tables/*.tex (rama carts_and_forests).
 % =============================================================================
 \documentclass[aspectratio=169,10pt]{beamer}
 
@@ -23,7 +23,7 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.17}
 
-\graphicspath{{../output/figures/}}
+\graphicspath{{../02_outputs/figures/}}
 
 % ---- Colores institucionales ----------------------------------------------
 \definecolor{azul}{HTML}{0B3C5D}
@@ -201,11 +201,11 @@ cuadrados, índices) \alert{no suman}: los árboles ya las construyen.
 % -----------------------------------------------------------------------------
 % PLACEHOLDER: explicación visual de la estructura del modelo.
 % Por defecto se incluye el diagrama de latex/estructura_modelo_slide.tex
-% (output/figures/estructura_modelo_slide.png). Reemplazar por un diagrama
+% (02_outputs/figures/estructura_modelo_slide.png). Reemplazar por un diagrama
 % propio si se quiere otra versión.
 % -----------------------------------------------------------------------------
 \centering
-\IfFileExists{../output/figures/estructura_modelo_slide.png}{%
+\IfFileExists{../02_outputs/figures/estructura_modelo_slide.png}{%
   \includegraphics[width=\linewidth, height=0.7\textheight, keepaspectratio]{estructura_modelo_slide.png}%
 }{%
   \fbox{\parbox[c][0.6\textheight][c]{0.9\linewidth}{\centering

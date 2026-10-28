@@ -6,9 +6,9 @@ Big Data y Machine Learning Aplicado a la Economía, Universidad de los Andes.
 Este documento acompaña la presentación [`compare_equipo_04.tex`](compare_equipo_04.tex), el segundo set de diapositivas. El primero, [`best_equipo_04.tex`](best_equipo_04.tex), presenta el modelo ganador en detalle. Aquí contamos por qué ese modelo sobresalió, cómo se compara con los demás algoritmos que probamos y qué tradeoffs implica elegirlo para una política pública.
 
 Los números salen de:
-- [`output/tables/modelos_f1.tex`](../output/tables/modelos_f1.tex), [`equidad_brechas.tex`](../output/tables/equidad_brechas.tex), [`descriptivas.tex`](../output/tables/descriptivas.tex) y las tablas de importancia;
+- [`02_outputs/tables/modelos_f1.tex`](../02_outputs/tables/modelos_f1.tex), [`equidad_brechas.tex`](../02_outputs/tables/equidad_brechas.tex), [`descriptivas.tex`](../02_outputs/tables/descriptivas.tex) y las tablas de importancia;
 - [`latex/resultados.tex`](../latex/resultados.tex);
-- las notas de los scripts de logit de la rama `main` (`04_logit.r`, `05_logit_parsimonioso.r` y `06_logit_interacciones.r`).
+- las notas de los scripts de logit de la rama `main` (`06_logit.R`, `07_logit_parsimonioso.R` y `08_logit_interacciones.R`).
 
 ---
 
@@ -52,7 +52,7 @@ Los equipos que optimizaron contra el leaderboard público se sobreajustaron a e
 - **Arriendos:** los códigos 98 y 99 de `arriendo_estimado`, `arriendo_pagado` y `cuota_amortizacion` pasan a `NA`. Los valores atípicos se dejan a propósito.
 - **Hogares eliminados:** 2 de train, con un número de cuartos imposible (98 y 43). En test no se elimina nada.
 - **`arriendo_imputado`:** reconstruye la regla del DANE y coincide en el 98,4% de los hogares.
-- **Base por hogar** (`01b_bases_hogar.r`): una fila por hogar con sumas, proporciones y máximos de sus miembros.
+- **Base por hogar** (`02_bases_hogar.R`): una fila por hogar con sumas, proporciones y máximos de sus miembros.
 
 ### 2.2 Renombramiento de variables
 
@@ -88,7 +88,7 @@ Las preguntas del DANE vienen con códigos (`P####`). Las renombramos para que e
 | Proporción del hogar en edad de trabajar | 0,856 | 0,731 | −0,125 |
 | Arriendo estimado (miles de pesos) | 600 | 278 | −322 |
 
-Todas las diferencias tienen un p-valor < 0,001 (prueba *t*). La tabla completa está en [`descriptivas.tex`](../output/tables/descriptivas.tex) y las figuras en [`ingreso_continuas.png`](../output/figures/ingreso_continuas.png) e [`ingreso_dummies.png`](../output/figures/ingreso_dummies.png).
+Todas las diferencias tienen un p-valor < 0,001 (prueba *t*). La tabla completa está en [`descriptivas.tex`](../02_outputs/tables/descriptivas.tex) y las figuras en [`ingreso_continuas.png`](../02_outputs/figures/ingreso_continuas.png) e [`ingreso_dummies.png`](../02_outputs/figures/ingreso_dummies.png).
 
 **Lo que anticipan los datos sobre los modelos:**
 1. Lo que separa a los pobres es **del hogar**: cuántos trabajan, cuántos dependen de ellos y qué vivienda tienen. Por eso los modelos que agregan la información por hogar le ganan a los que modelan a cada persona.
@@ -100,7 +100,7 @@ Todas las diferencias tienen un p-valor < 0,001 (prueba *t*). La tabla completa 
 
 ### 3.1 Panorama: el mejor modelo de cada categoría
 
-Todos los modelos se evalúan igual: los 5 folds por hogar de `05b` y el F1 por hogar. Naive Bayes, CART y XGBoost por persona se volvieron a estimar con esos folds; en sus scripts usaban 10.
+Todos los modelos se evalúan igual: los 5 folds por hogar de `11` y el F1 por hogar. Naive Bayes, CART y XGBoost por persona se volvieron a estimar con esos folds; en sus scripts usaban 10.
 
 | Escalón | Categoría | Especificación | F1 | F1 honesto | Umbral |
 | :--- | :--- | :--- | :---: | :---: | :---: |
@@ -108,7 +108,7 @@ Todos los modelos se evalúan igual: los 5 folds por hogar de `05b` y el F1 por 
 | | Naive Bayes | 16 variables, `laplace` 0 | 0,6755 | 0,6752 | 0,42 |
 | | XGBoost | 24 variables, 500 rondas | 0,7055 | 0,7055 | 0,32 |
 | Por hogar | **Logit lasso** | 1.159 columnas con interacciones y splines | 0,7451 | 0,7449 | 0,37 |
-| | XGBoost | Solo la base por hogar de 01b | 0,7534 | 0,7532 | 0,36 |
+| | XGBoost | Solo la base por hogar de 02 | 0,7534 | 0,7532 | 0,36 |
 | Por hogar + modelos anidados | XGBoost | Sin Tweedie, con la regresión del ingreso | 0,7738 | 0,7736 | 0,38 |
 | | **Random forest** | `ranger`, 500 árboles, `mtry` 30, variables del mejor XGBoost | 0,7752 | 0,7750 | 0,40 |
 | | **XGBoost final** | Tweedie + regresión del ingreso (70/30) | **0,7775** | **0,7775** | 0,39 |
@@ -142,11 +142,11 @@ Cada punto adicional de F1 cuesta más complejidad. El XGBoost final le gana al 
 
 El logit y el XGBoost tienen una **correlación de 0,92** en log odds, y el peso óptimo del logit en una combinación es 0: los dos se equivocan en los mismos hogares, los que están cerca de la línea. Los tres modelos chocan con el mismo límite: el 30% de los errores está a menos del 10% de la línea de pobreza.
 
-Fuentes de importancia: [`importancia_grupos.tex`](../output/tables/importancia_grupos.tex), [`importancia_variables_e2e.tex`](../output/tables/importancia_variables_e2e.tex) (secciones 14–16 de [`05b_xgboost_hogar.r`](../script/05b_xgboost_hogar.r)).
+Fuentes de importancia: [`importancia_grupos.tex`](../02_outputs/tables/importancia_grupos.tex), [`importancia_variables_e2e.tex`](../02_outputs/tables/importancia_variables_e2e.tex) (secciones 14–16 de [`11_xgboost_hogar.R`](../01_code/11_xgboost_hogar.R)).
 
 ### 3.4 Cuánto cuesta en F1 un modelo que se puede leer
 
-Logit sin penalizar con las *k* primeras variables, en el orden en que entran al lasso (`05_logit_parsimonioso.r` de `main`):
+Logit sin penalizar con las *k* primeras variables, en el orden en que entran al lasso (`07_logit_parsimonioso.R` de `main`):
 
 | *k* | Variables agregadas | F1 (CV) |
 | :---: | :--- | :---: |
@@ -187,7 +187,7 @@ Brecha de sensibilidad, en puntos porcentuales, entre el grupo mejor y el peor d
 - **Sexo del jefe:** la única brecha que crece con los modelos por hogar, de 1–2 a unos 4 puntos. Siempre favorece a los hogares con jefa, que se detectan mejor.
 - Con una sola regla de decisión no se pueden igualar a la vez la sensibilidad y los falsos positivos entre grupos con tasas de pobreza distintas (Kleinberg, Mullainathan y Raghavan, 2017).
 
-Figura completa por grupo: [`equidad_errores.png`](../output/figures/equidad_errores.png).
+Figura completa por grupo: [`equidad_errores.png`](../02_outputs/figures/equidad_errores.png).
 
 ---
 
@@ -221,11 +221,11 @@ Un instrumento de focalización tiene que ser **creíble**. Los hogares, los alc
 ## 5. Cómo replicar
 
 ```sh
-Rscript script/01_data_cleaning.r                      # bases limpias
-Rscript output/pruebas/hogar/01b_bases_hogar_main.r    # bases por hogar
-Rscript script/05b_xgboost_hogar.r                     # XGBoost final, random forest y permutaciones
-Rscript output/pruebas/logit/06_logit_interacciones_main.r   # logit lasso (copia del 06 de main)
-Rscript script/06_comparacion_modelos.r                # modelos_f1.tex y tablas de equidad
+Rscript 01_code/01_data_cleaning.R                      # bases limpias
+Rscript 01_code/02_bases_hogar.R                       # bases por hogar
+Rscript 01_code/11_xgboost_hogar.R                     # XGBoost final, random forest y permutaciones
+Rscript 01_code/08_logit_interacciones.R                     # logit lasso (guarda logit_oof.rds)
+Rscript 01_code/15_comparacion_modelos.R                # modelos_f1.tex y tablas de equidad
 cd presentacion && latexmk -pdf compare_equipo_04.tex  # presentación
 ```
 

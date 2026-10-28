@@ -3,7 +3,7 @@
 **Equipo 04:** Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
 Big Data y Machine Learning Aplicado a la Economía, Universidad de los Andes.
 
-Este documento acompaña la presentación [`best_equipo_04.tex`](best_equipo_04.tex) y tiene la narrativa y el sustento técnico completos. Los números salen de [`latex/resultados.tex`](../latex/resultados.tex) y de las tablas de [`output/tables/`](../output/tables/).
+Este documento acompaña la presentación [`best_equipo_04.tex`](best_equipo_04.tex) y tiene la narrativa y el sustento técnico completos. Los números salen de [`latex/resultados.tex`](../latex/resultados.tex) y de las tablas de [`02_outputs/tables/`](../02_outputs/tables/).
 
 ---
 
@@ -50,7 +50,7 @@ Ningún monto de ingreso está en test. El modelo tiene que **reconstruir el ing
 
 ### 2.3 Qué revelaron los datos
 
-- El ingreso per cápita sube con el **tamaño de la empresa** (un proxy de formalidad), con la educación superior y con estar ocupado. Es más bajo en las viviendas en posesión sin título ([`ingreso_dummies.png`](../output/figures/ingreso_dummies.png)).
+- El ingreso per cápita sube con el **tamaño de la empresa** (un proxy de formalidad), con la educación superior y con estar ocupado. Es más bajo en las viviendas en posesión sin título ([`ingreso_dummies.png`](../02_outputs/figures/ingreso_dummies.png)).
 - El sexo de la persona casi no cambia el ingreso per cápita promedio.
 - En un CART exploratorio con todas las variables, la proporción de ocupados del hogar y el arriendo por persona sobre la línea concentran el 47% de la reducción de impureza.
 - El ingreso es **muy asimétrico** y tiene muchos ceros por persona (inactivos, menores). Esto motivó la pérdida Tweedie (sección 3.4). El percentil 99 del ingreso per cápita es $4,4 millones.
@@ -60,7 +60,7 @@ Ningún monto de ingreso está en test. El modelo tiene que **reconstruir el ing
 | Etapa | F1 (CV) |
 | :--- | :---: |
 | **Fase 1 (fallida):** modelo por persona, probabilidad promediada en el hogar (log odds) | 0,7055 |
-| **Fase 2 (pivote):** una fila por hogar (base de agregados `01b`) | 0,7534 |
+| **Fase 2 (pivote):** una fila por hogar (base de agregados `02`) | 0,7534 |
 | + ingreso predicho por persona y stacking con la probabilidad por persona | 0,7598 |
 | + categóricas nativas de XGBoost | 0,7612 |
 | + 16 preguntas por persona que ningún modelo usaba | 0,7714 |
@@ -86,7 +86,7 @@ Los árboles ya arman esas combinaciones, y una transformación monótona produc
 
 ### 3.1 Estructura (tres niveles)
 
-Diagrama: [`output/figures/estructura_modelo_slide.png`](../output/figures/estructura_modelo_slide.png) (fuente: [`latex/estructura_modelo_slide.tex`](../latex/estructura_modelo_slide.tex)).
+Diagrama: [`02_outputs/figures/estructura_modelo_slide.png`](../02_outputs/figures/estructura_modelo_slide.png) (fuente: [`latex/estructura_modelo_slide.tex`](../latex/estructura_modelo_slide.tex)).
 
 1. **Modelos auxiliares por persona** (XGBoost):
    - el ingreso de cada miembro, en cinco versiones (V4, V4t, V4e, V4f y **V4w con Tweedie**);
@@ -160,7 +160,7 @@ En cada fold se reestiman el clasificador y la regresión con los otros cuatro f
 | Ingreso predicho por persona (todas las versiones) | 26 | **0,4232** | 0,0081 | 71,7 |
 | Probabilidad de ingreso menor a 0,8 y 1,25 líneas | 8 | 0,0607 | 0,0154 | 6,5 |
 | Probabilidad de ser pobre por persona (stacking) | 8 | 0,0437 | 0,0061 | 13,9 |
-| Base por hogar de 01b (sin ubicación) | 89 | 0,0097 | 0,0024 | 4,0 |
+| Base por hogar de 02 (sin ubicación) | 89 | 0,0097 | 0,0024 | 4,0 |
 | Otras construidas (expansión, mejor ocupado, productos, razones) | 24 | 0,0051 | 0,0014 | 2,8 |
 | Ubicación (dominio, departamento, zona, línea) | 4 | 0,0022 | 0,0014 | 0,8 |
 | Tasa de pobreza del oficio | 3 | 0,0005 | 0,0007 | 0,4 |
@@ -184,7 +184,7 @@ Sin el ingreso predicho, el F1 cae de 0,778 a 0,35. La variable individual más 
 
 Casi todo el efecto del trabajo pasa por los modelos auxiliares: el ingreso predicho resume el empleo de cada miembro. La vivienda y el tamaño del hogar tienen un efecto directo porque entran en la fórmula del ingreso per cápita con arriendo imputado. La educación y la salud importan poco porque su información ya está en la posición ocupacional, el oficio y la formalidad. Las importancias no se suman entre conceptos, porque los conceptos están correlacionados y sus efectos interactúan.
 
-Fuentes: [`importancia_grupos.tex`](../output/tables/importancia_grupos.tex), [`importancia_conceptos.tex`](../output/tables/importancia_conceptos.tex), [`importancia_variables.tex`](../output/tables/importancia_variables.tex), [`importancia_directas.tex`](../output/tables/importancia_directas.tex) (secciones 14 y 15 de [`05b_xgboost_hogar.r`](../script/05b_xgboost_hogar.r)).
+Fuentes: [`importancia_grupos.tex`](../02_outputs/tables/importancia_grupos.tex), [`importancia_conceptos.tex`](../02_outputs/tables/importancia_conceptos.tex), [`importancia_variables.tex`](../02_outputs/tables/importancia_variables.tex), [`importancia_directas.tex`](../02_outputs/tables/importancia_directas.tex) (secciones 14 y 15 de [`11_xgboost_hogar.R`](../01_code/11_xgboost_hogar.R)).
 
 ### 3.6 Diagnósticos: dónde se equivoca
 
@@ -224,7 +224,7 @@ El F1 pesa igual los dos errores, y un programa social no tiene por qué hacerlo
 | Menores | Sin menores de 18 | 9,3 | 65,2 | 3,1 | 0,667 |
 | | Con menores de 18 | 29,6 | 85,1 | 10,9 | 0,807 |
 
-Fuente: [`equidad_mejor.tex`](../output/tables/equidad_mejor.tex).
+Fuente: [`equidad_mejor.tex`](../02_outputs/tables/equidad_mejor.tex).
 
 - En los grupos con más precariedad (zona rural, jefe informal, hogares grandes) el modelo **sobreestima** la pobreza: tiene más errores de inclusión. Asocia las características precarias con la pobreza, y en esos grupos también hay muchos hogares precarios que no son pobres monetariamente.
 - Los pobres "que no lo parecen" (jefe formal o con educación superior, hogares pequeños o sin menores) quedan **excluidos** con más frecuencia: la sensibilidad es de 65–67%.
@@ -271,14 +271,14 @@ El modelo mide **estrictamente pobreza monetaria**. Educación, salud y subsidio
 Desde la raíz del repositorio:
 
 ```sh
-Rscript script/01_data_cleaning.r                      # bases limpias por persona
-Rscript output/pruebas/hogar/01b_bases_hogar_main.r    # bases por hogar (data/train_hogar.rds, data/test_hogar.rds)
-Rscript script/05b_xgboost_hogar.r                     # modelo final, permutaciones (secciones 14-15) y submission
-Rscript script/06_comparacion_modelos.r                # tablas de equidad
+Rscript 01_code/01_data_cleaning.R                      # bases limpias por persona
+Rscript 01_code/02_bases_hogar.R                       # bases por hogar (data/train_hogar.rds, data/test_hogar.rds)
+Rscript 01_code/11_xgboost_hogar.R                     # modelo final, permutaciones (secciones 14-15) y submission
+Rscript 01_code/15_comparacion_modelos.R                # tablas de equidad
 cd presentacion && latexmk -pdf best_equipo_04.tex     # presentación
 ```
 
-Submission final: `output/submissions/XGBH_nativo_comb_..._peso_w07_threshold_039.csv`.
+Submission final: `02_outputs/predictions/XGBH_nativo_comb_..._peso_w07_threshold_039.csv`.
 
 ---
 

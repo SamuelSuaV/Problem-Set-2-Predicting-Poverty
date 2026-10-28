@@ -1,82 +1,39 @@
-# History files
+# R y RStudio
 .Rhistory
 .Rapp.history
-
-# Session Data files
 .RData
 .RDataTmp
-*.csv
-*.rds
-
-# User-specific files
 .Ruserdata
-
-# Example code in package build process
-*-Ex.R
-
-# Output files from R CMD build
-/*.tar.gz
-
-# Output files from R CMD check
-/*.Rcheck/
-
-# RStudio files
+.Renviron
 .Rproj.user/
-
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
-
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
-
-# knitr and R markdown default cache directories
 *_cache/
-/cache/
-
-# Temporary files created by R markdown
 *.utf8.md
 *.knit.md
-
-# R Environment Variables
-.Renviron
-
-# pkgdown site
-docs/
-
-# translation temp files
-po/*~
-
-# RStudio Connect folder
-rsconnect/
 
 # macOS
 .DS_Store
 
-# Archivos auxiliares de LaTeX (se regeneran al compilar; el PDF sí se versiona)
-latex/*.aux
-latex/*.fdb_latexmk
-latex/*.fls
-latex/*.log
-latex/*.out
-latex/*.toc
-latex/*.synctex.gz
-presentacion/*.aux
-presentacion/*.fdb_latexmk
-presentacion/*.fls
-presentacion/*.nav
-presentacion/*.out
-presentacion/*.snm
-presentacion/*.toc
-presentacion/*.synctex.gz
+# Datos: los CSV crudos se descargan de Kaggle (ver README) y las bases .rds las
+# crea 01_code/.
+data/*.csv
+*.rds
 
-# Logs de las corridas (se regeneran al correr cada script)
+# Resultados que se regeneran al correr el código: predicciones para Kaggle,
+# resultados intermedios de los modelos y registros de las corridas.
+02_outputs/predictions/*.csv
+02_outputs/logs/
+02_outputs/pruebas/
 *.log
 
-# Pruebas de una sola vez, ya registradas en los scripts: las de XGBoost por
-# persona están comentadas en la sección 4 de 05_xgboost.r y la combinación con
-# el logit es la sección 13 de 05b_xgboost_hogar.r.
-output/pruebas/xgb/*.r
-output/pruebas/logit/combinar_ahora.r
+# Archivos auxiliares de LaTeX (el PDF sí se versiona)
+*.aux
+*.fdb_latexmk
+*.fls
+*.nav
+*.out
+*.snm
+*.toc
+*.synctex.gz
 
-output/logs/
+# Notas locales para Claude Code (no se versionan)
+CLAUDE.md
