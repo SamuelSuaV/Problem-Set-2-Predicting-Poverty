@@ -29,6 +29,8 @@ El modelo final es una cadena de seis componentes:
 | Métrica | Valor |
 | :--- | :---: |
 | **F1 de validación cruzada** (5 folds por hogar, datos públicos de train) | **0,7775** |
+| Kaggle, puntaje público (20% de test) | 0,77 |
+| Kaggle, puntaje privado (80% de test) | **0,78** |
 
 ### 1.2 El mensaje
 
@@ -81,7 +83,7 @@ Cada nivel de la gráfica del pivote es el mejor modelo hasta ese momento, con l
 | **Por hogar: agregados de los miembros** | Una fila por hogar con 94 variables: cuántos ocupados y formales hay, horas por persona, educación de los adultos, dependencia, hacinamiento, arriendo por persona sobre la línea y los datos del jefe. Con las mismas herramientas, el F1 sube 0,05. | 0,7534 |
 | **+ ingreso predicho y stacking** | Un modelo por persona predice el ingreso de cada miembro y se suma en el hogar; la probabilidad de ser pobre por persona se resume (mínimo, máximo, promedio, jefe). Los dos con validación cruzada anidada. Además, `eta` 0,02. | 0,7598 |
 | **+ categóricas nativas** | Dominio, departamento, oficio y posición ocupacional entran como categorías, no como códigos ordenados. Ayuda sobre todo a los modelos por persona (el oficio tiene 84 niveles). | 0,7612 |
-| **+ ingresos sin estar ocupado** | Preguntas que ningún modelo usaba: pagos en especie, posición en el segundo y en el último trabajo, búsqueda de más horas o de otro trabajo, e ingresos de desocupados e inactivos. Entran al modelo del ingreso por persona ($R^2$ 0,94 → 0,98). Incluye usar el ingreso afinado junto al original (0,7622). | 0,7714 |
+| **+ ingresos sin estar ocupado** | Preguntas que habíamos dejado por fuera y añadimos al revisar el cuestionario: pagos en especie, posición en el segundo y en el último trabajo, búsqueda de más horas o de otro trabajo, e ingresos de desocupados e inactivos. Entran al modelo del ingreso por persona ($R^2$ 0,94 → 0,98). Incluye usar el ingreso afinado junto al original (0,7622). | 0,7714 |
 | **+ ingreso afinado y arriendo imputado** | El ingreso predicho con las preguntas nuevas, afinado; profundidad 8, `min_child_weight` 50 y `colsample` 0,5 (0,7733); y el ingreso predicho más el arriendo imputado, por persona y sobre la línea (la fórmula del DANE). | 0,7741 |
 | **+ ingreso con Tweedie** | El ingreso por persona se estima con pérdida Tweedie, laboral y no laboral por separado. | 0,7772 |
 | **+ regresión del ingreso (70/30)** | Combinación con una regresión del ingreso del hogar (sección 3.4). | **0,7775** |
@@ -101,6 +103,8 @@ Diagrama: [`output/figures/estructura_modelo_slide.png`](../output/figures/estru
 3. **Modelos por hogar:** el clasificador y la regresión, combinados 70/30.
 
 ### 3.2 Validación: cómo se mide sin hacer trampa
+
+*Esta parte ya no tiene slide propia (se da por entendida en la presentación); queda aquí como referencia por si preguntan.*
 
 - **5 folds por hogar.** Todos los miembros de un hogar quedan en el mismo fold. Se entrena con 4 folds y se mide con el quinto, cinco veces. Todos los modelos del equipo usan los mismos folds, así que cualquier mejora se compara contra la misma partición.
 - **Validación cruzada anidada.** El ingreso predicho, la probabilidad por persona y la tasa del oficio usan la etiqueta. Si se estimaran con todos los datos, el modelo vería la respuesta del hogar que se evalúa. Por eso, dentro de los 4 folds de entrenamiento se repite la partición: cada parte se predice con modelos entrenados en las otras tres, y el fold evaluado se predice con modelos entrenados en los cuatro. El fold de validación nunca entra en el entrenamiento de ningún nivel. Son 26 modelos por variable.
@@ -180,6 +184,17 @@ La variable individual más importante es `ing_arr_pc_lp_w`, la fórmula del DAN
 | Salud | 0,009 | 0,001 | 0,010 |
 
 El trabajo entra casi todo a través del ingreso predicho. Solo la vivienda y el tamaño del hogar entran directo, porque la fórmula suma el arriendo imputado y divide entre personas. Las importancias no se suman entre conceptos: están correlacionados.
+
+**Por qué importan estos conceptos: la teoría detrás.** La importancia por concepto coincide con lo que predice la literatura sobre ingreso y pobreza, y ayuda a entender por qué el modelo detecta mejor a unos hogares que a otros:
+
+| Concepto (caída del F1) | Teoría | Qué implica para el modelo |
+| :--- | :--- | :--- |
+| Formalidad, posición y oficio (−0,226) | **Lewis (1954):** en una economía dual, el sector de subsistencia (informal) absorbe un exceso de trabajadores en tareas de baja productividad, cuyos ingresos se quedan en el nivel de subsistencia. | La posición ocupacional ubica al hogar en uno de los dos sectores. Por eso, al quitar este concepto el modelo pierde la señal que más separa a pobres de no pobres. |
+| Educación (−0,021) | **Becker (1964):** el capital humano es un activo que aumenta la productividad y abre trabajos especializados, de mayor valor agregado y más formales. | La educación determina el ingreso de largo plazo y el grado de formalización **a través** del empleo. Su información ya está en la posición, el oficio y la formalidad, y por eso pesa poco sola. |
+| Ingresos no laborales (−0,143) | **Deaton (1997):** los hogares vulnerables no consumen ni sobreviven con un salario mensual estable; su bienestar depende de amortiguar choques con ingresos no laborales (remesas, transferencias, pensiones, ayudas). | Por eso esas preguntas entran a los modelos por persona: identifican quién tiene ingresos sin estar ocupado. |
+| Ingresos irregulares (errores cerca de la línea) | **Collins, Morduch, Rutherford y Ruthven (2009):** los hogares pobres manejan flujos de ingreso irregulares con crédito informal, ahorro y deudas que están pagando constantemente. | Un mes de encuesta no refleja el ingreso permanente del hogar: cerca de la línea, buena parte del error es irreducible. |
+
+**Quién se detecta mejor.** Los pobres informales, con poca educación y en hogares grandes encajan en el sector de subsistencia de Lewis, y el modelo los detecta bien (recall de 80–89%). Los pobres con jefe formal o con educación superior "no lo parecen" según Becker, y el modelo los excluye más (recall de 65%; sección 4.2).
 
 **Qué sumó y qué restó.** Cada barra de la slide compara una prueba con el mejor modelo de ese momento (cuadros de `resultados.tex`):
 
@@ -318,13 +333,17 @@ Submission final: `output/submissions/XGBH_nativo_comb_..._peso_w07_threshold_03
 ## Referencias
 
 - Angulo, R., Díaz, Y. y Pardo, R. (2016). The Colombian Multidimensional Poverty Index: Measuring poverty in a public policy context. *Social Indicators Research, 127*(1), 1–38.
+- Becker, G. S. (1964). *Human capital: A theoretical and empirical analysis, with special reference to education*. National Bureau of Economic Research y Columbia University Press.
 - Camacho, A. y Conover, E. (2011). Manipulation of social program eligibility. *American Economic Journal: Economic Policy, 3*(2), 41–65.
 - Chen, T. y Guestrin, C. (2016). XGBoost: A scalable tree boosting system. En *Proceedings of the 22nd ACM SIGKDD* (pp. 785–794).
+- Collins, D., Morduch, J., Rutherford, S. y Ruthven, O. (2009). *Portfolios of the poor: How the world's poor live on $2 a day*. Princeton University Press.
 - CONPES 3877 (2016). *Declaración de importancia estratégica del Sistema de Identificación de Potenciales Beneficiarios (SISBÉN IV)*. DNP.
 - DANE (2019). *Pobreza monetaria y multidimensional en Colombia 2018* [Boletín técnico].
 - DANE y DNP (2012). *Misión para el Empalme de las Series de Empleo, Pobreza y Desigualdad (MESEP): metodología de pobreza monetaria*.
+- Deaton, A. (1997). *The analysis of household surveys: A microeconometric approach to development policy*. Johns Hopkins University Press y Banco Mundial.
 - Fernández, C. y Villar, L. (2017). The impact of lowering the payroll tax on informality in Colombia. *Economía, 18*(1), 125–155.
 - Grosh, M. y Baker, J. (1995). *Proxy means tests for targeting social programs* (LSMS Working Paper 118). Banco Mundial.
 - Kleinberg, J., Ludwig, J., Mullainathan, S. y Obermeyer, Z. (2015). Prediction policy problems. *American Economic Review, 105*(5), 491–495.
 - Kleinberg, J., Mullainathan, S. y Raghavan, M. (2017). Inherent trade-offs in the fair determination of risk scores. En *8th Innovations in Theoretical Computer Science Conference (ITCS)*.
+- Lewis, W. A. (1954). Economic development with unlimited supplies of labour. *The Manchester School, 22*(2), 139–191.
 - Ravallion, M. (2016). *The economics of poverty: History, measurement, and policy*. Oxford University Press.

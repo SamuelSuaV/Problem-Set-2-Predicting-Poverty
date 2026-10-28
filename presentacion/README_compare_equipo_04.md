@@ -35,19 +35,19 @@ GEIH 2018: 543.103 personas en 164.958 hogares, 20% de hogares pobres. Los monto
 1. **El hogar como unidad.** Una fila por hogar con sumas, proporciones y los datos del jefe, porque la pobreza se define en la unidad de gasto.
 2. **La regla del DANE, reconstruida.** El arriendo imputado (lo que el DANE suma como ingreso a quien no paga arriendo) se reconstruyó con la tenencia, el arriendo estimado y la cuota de amortización. Coincide en el 98,4% de los hogares de train.
 3. **El ingreso como objetivo intermedio.** Modelos por persona predicen el ingreso laboral y no laboral (pérdida Tweedie) y se suman en el hogar, sin usar nunca la etiqueta del fold evaluado.
-4. **Preguntas que nadie usaba.** Pagos en especie, búsqueda de trabajo e ingresos de desocupados e inactivos. Identifican quién recibe ingresos sin estar ocupado: el $R^2$ del ingreso por persona sube de 0,94 a 0,98.
+4. **Preguntas añadidas en una segunda revisión.** Al revisar el cuestionario agregamos preguntas que habíamos dejado por fuera al principio: pagos en especie, búsqueda de trabajo e ingresos de desocupados e inactivos. Identifican quién recibe ingresos sin estar ocupado: el $R^2$ del ingreso por persona sube de 0,94 a 0,98.
 
 **Limpieza (resumen).** Merge personas–hogares muchos a uno; `pobre` = ingreso per cápita con arriendo imputado < línea (se cumple en el 100% de los hogares); `NA` = "la pregunta no aplica" por los saltos del cuestionario; sí/no a 1/0; las categóricas conservan su código DANE y una dummy por categoría; se eliminan 2 hogares de train con cuartos imposibles (en test, ninguno). Las preguntas `P####` se renombraron (P6430 → `posicion_ocupacional`, P7495 → `recibio_arriendos_pensiones`, P5090 → `tenencia_vivienda`, etc.); la guía completa está en [`documentation/guia_variables.Rmd`](../documentation/guia_variables.Rmd).
 
 ### 2.2 Descriptivas comparativas: dónde caen los aciertos y los errores
 
-La nube 3D ([`pres_3d.png`](../output/figures/pres_3d.png); versión interactiva que se puede rotar: [`pres_3d.html`](../output/figures/pres_3d.html)) muestra 8.000 hogares de train al azar en tres ejes:
+La nube 3D ([`pres_3d.png`](../output/figures/pres_3d.png); versión interactiva que se puede rotar, aparte del PDF: [`pres_3d.html`](../output/figures/pres_3d.html)) muestra 8.000 hogares de train al azar en tres ejes:
 
 - **x:** log(ingreso / línea), donde 0 es la línea de pobreza (ingreso real, que solo existe en train);
 - **y:** proporción de ocupados del hogar;
 - **z:** personas en la unidad de gasto.
 
-El color es el resultado del modelo final fuera de muestra: pobre detectado, pobre excluido, no pobre incluido o no pobre bien clasificado.
+El color es el resultado del modelo final fuera de muestra. Para que los errores se vean en un salón, los hogares bien clasificados (pobres detectados y no pobres bien clasificados) van en gris, y los dos errores resaltan encima: pobres excluidos en rojo y no pobres incluidos en amarillo.
 
 | Resultado | Hogares | Ingreso / línea (mediana) | Prop. ocupados | Personas | % a menos de 25% de la línea |
 | :--- | :---: | :---: | :---: | :---: | :---: |

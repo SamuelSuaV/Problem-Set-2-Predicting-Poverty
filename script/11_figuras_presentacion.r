@@ -27,7 +27,7 @@
 #         folds por hogar); ps2_predicciones_fuera_de_muestra/originales/
 #         H0_base01b.rds (importancia por ganancia de la base por hogar).
 # Output: output/figures/pres_predictores_cat.png , pres_predictores_cont.png ,
-#         pres_3d.png , pres_3d.html (con su carpeta pres_3d_files/);
+#         pres_3d.png , pres_3d.html (un solo archivo, que se adjunta al PDF);
 #         output/tables/presentacion/*.dat (tablas que lee pgfplots en las
 #         slides); output/pruebas/f1_vs_k/*.rds (una por algoritmo y k; si ya
 #         existe, se lee).
@@ -182,34 +182,48 @@ ggsave(file.path(dir_fig, "pres_predictores_cont.png"), g_cont, width = 10, heig
 ## 3. Nube 3D de hogares
 
 # x: log del ingreso sobre la línea (0 = en la línea); y: proporción de
-# ocupados; z: personas de la unidad de gasto. Color: resultado del modelo
-# final. Muestra de 8.000 hogares (los errores con más peso para que se vean:
-# todos los de la muestra proporcional, más hasta completar).
+# ocupados; z: personas de la unidad de gasto. Muestra de 8.000 hogares al
+# azar. Para que los errores se vean en un salón, los aciertos (pobres
+# detectados y no pobres bien clasificados) van en gris y los dos errores en
+# rojo (pobre excluido) y amarillo (no pobre incluido), más grandes y encima.
 niveles_res <- c("Pobre detectado", "Pobre excluido", "No pobre incluido", "No pobre bien clasificado")
-colores_res <- c(col_azul, col_rojo, col_dorado, "#B8C4CE")
+niveles_nube <- c("Bien clasificado", "Pobre excluido", "No pobre incluido")
+colores_nube <- c("#C9D1D9", col_rojo, col_dorado)
 set.seed(123)
 nube <- tibble(x = pmin(pmax(log(pmax(hog$r, 0.02)), -3), 3), yy = hog$ocup_pc,
-               z = pmin(hog$personas, 10), resultado = factor(resultado, niveles_res)) |>
+               z = pmin(hog$personas, 10), resultado = resultado) |>
   slice_sample(n = 8000) |>
-  mutate(z_j = z + runif(n(), -0.3, 0.3), yy_j = pmin(pmax(yy + runif(n(), -0.02, 0.02), 0), 1)) |>
-  arrange(desc(resultado))   # los errores se dibujan encima
+  mutate(z_j = z + runif(n(), -0.3, 0.3), yy_j = pmin(pmax(yy + runif(n(), -0.02, 0.02), 0), 1),
+         grupo = factor(if_else(resultado %in% c("Pobre excluido", "No pobre incluido"),
+                                resultado, "Bien clasificado"), niveles_nube))
+aciertos <- filter(nube, grupo == "Bien clasificado")
+errores  <- filter(nube, grupo != "Bien clasificado")
 
 png(file.path(dir_fig, "pres_3d.png"), width = 2000, height = 1650, res = 220)
 par(mar = c(4.5, 0.5, 0.5, 0.5), xpd = NA)
-scatter3D(nube$x, nube$yy_j, nube$z_j, colvar = as.integer(nube$resultado),
-          col = colores_res, pch = 16, cex = 0.45, bty = "g", ticktype = "detailed",
-          theta = 40, phi = 15, colkey = FALSE, expand = 0.8, cex.lab = 1.1,
+scatter3D(aciertos$x, aciertos$yy_j, aciertos$z_j, col = colores_nube[1], pch = 16, cex = 0.35,
+          bty = "g", ticktype = "detailed", theta = 40, phi = 15, colkey = FALSE, expand = 0.8,
+          cex.lab = 1.1, xlim = range(nube$x), ylim = c(0, 1), zlim = range(nube$z_j),
           xlab = "log(ingreso / línea)", ylab = "Proporción de ocupados", zlab = "Personas")
-legend("bottom", inset = c(0, -0.12), legend = niveles_res, col = colores_res, pch = 16,
-       bty = "n", horiz = TRUE, cex = 0.95, pt.cex = 1.5)
+scatter3D(errores$x, errores$yy_j, errores$z_j, colvar = as.integer(errores$grupo),
+          col = colores_nube, clim = c(1, 3), pch = 16, cex = 0.75, colkey = FALSE, add = TRUE)
+legend("bottom", inset = c(0, -0.12), legend = niveles_nube, col = colores_nube, pch = 16,
+       bty = "n", horiz = TRUE, cex = 1.05, pt.cex = 1.8)
 dev.off()
 
-p3d <- plot_ly(nube, x = ~x, y = ~yy_j, z = ~z_j, color = ~resultado, colors = colores_res,
-               type = "scatter3d", mode = "markers", marker = list(size = 2)) |>
+p3d <- plot_ly(nube, x = ~x, y = ~yy_j, z = ~z_j, color = ~grupo, colors = colores_nube,
+               type = "scatter3d", mode = "markers", marker = list(size = 2.5)) |>
   layout(scene = list(xaxis = list(title = "log(ingreso / línea)"),
                       yaxis = list(title = "Proporción de ocupados"),
                       zaxis = list(title = "Personas")))
-saveWidget(p3d, file.path(dir_fig, "pres_3d.html"), selfcontained = FALSE, libdir = "pres_3d_files",
+# Un solo archivo HTML (con plotly adentro, sin carpeta de librerías) para
+# adjuntarlo al PDF de compare_equipo_04. Necesita pandoc; si no está en el
+# PATH, se usa el que trae RStudio en Windows.
+if (!nzchar(Sys.which("pandoc")) && !nzchar(Sys.getenv("RSTUDIO_PANDOC"))) {
+  pandoc_rstudio <- "C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools"
+  if (dir.exists(pandoc_rstudio)) Sys.setenv(RSTUDIO_PANDOC = pandoc_rstudio)
+}
+saveWidget(p3d, file.path(dir_fig, "pres_3d.html"), selfcontained = TRUE,
            title = "Hogares: resultado del modelo final")
 
 # Resumen por resultado (para el texto de la slide).

@@ -9,9 +9,13 @@
 % =============================================================================
 \documentclass[aspectratio=169,10pt,xcolor=table]{beamer}
 
-\usetheme[progressbar=frametitle, numbering=fraction, block=fill]{metropolis}
+% Beamer estándar: tema y fuente por defecto, número de slide abajo.
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
 
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \usepackage[utf8]{inputenc}
 \usepackage[spanish,es-nodecimaldot,es-noshorthands]{babel}
 \usepackage{booktabs}
@@ -22,22 +26,16 @@
 \usetikzlibrary{babel, positioning, arrows.meta}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.17}
-
 \graphicspath{{../output/figures/}{img/}}
 \newcommand{\dat}[1]{../output/tables/presentacion/#1.dat}
 
-% ---- Colores (los mismos de best_equipo_04.tex) ----------------------------
+% ---- Colores de las gráficas (y del texto que se refiere a ellas) ----------
 \definecolor{azul}{HTML}{0B3C5D}
 \definecolor{azulclaro}{HTML}{328CC1}
 \definecolor{dorado}{HTML}{D9B310}
 \definecolor{rojo}{HTML}{B23A48}
 \definecolor{verde}{HTML}{2E8B57}
 \definecolor{gris}{HTML}{6B7280}
-\setbeamercolor{frametitle}{bg=azul, fg=white}
-\setbeamercolor{progress bar}{fg=dorado, bg=azul!20}
-\setbeamercolor{title separator}{fg=dorado}
-\setbeamercolor{alerted text}{fg=azul}
-\setbeamerfont{alerted text}{series=\bfseries}
 
 % Colores de los tres modelos que se comparan a fondo.
 \colorlet{cxgb}{azul}
@@ -46,8 +44,8 @@
 
 \pgfkeys{/pgf/number format/.cd, use comma, 1000 sep={.}}
 
-% Encabezado de un tema dentro de una slide (sin cajas de color).
-\newcommand{\tema}[1]{{\color{azul}\bfseries #1}}
+% Encabezado de un tema dentro de una slide.
+\newcommand{\tema}[1]{\textbf{#1}}
 
 % Celda de una matriz de confusión: conteo y % de la fila.
 \newcommand{\celda}[3]{\cellcolor{#1}\begin{tabular}{@{}c@{}}\textbf{#2}\\[-1pt]{\tiny #3}\end{tabular}}
@@ -140,9 +138,10 @@ coincide en el \textbf{98,4\%} de los hogares.
 evaluado.
 
 \vspace{3mm}
-\small\tema{4. Preguntas que nadie usaba}\\
-\footnotesize Pagos en especie, búsqueda de trabajo e ingresos de
-desocupados e inactivos: identifican quién recibe ingresos sin estar
+\small\tema{4. Preguntas añadidas en una segunda revisión}\\
+\footnotesize Al revisar el cuestionario agregamos preguntas que habíamos
+dejado por fuera: pagos en especie, búsqueda de trabajo e ingresos de
+desocupados e inactivos. Identifican quién recibe ingresos sin estar
 ocupado ($R^2$ del ingreso por persona 0,94 $\to$ 0,98).
 \end{columns}
 \end{frame}
@@ -153,7 +152,7 @@ ocupado ($R^2$ del ingreso por persona 0,94 $\to$ 0,98).
 \centering
 \includegraphics[width=\linewidth, height=0.74\textheight, keepaspectratio]{pres_3d.png}\\
 \tiny 8.000 hogares de train al azar; resultado del modelo final fuera de
-muestra. \href{../output/figures/pres_3d.html}{Versión interactiva (HTML)}.
+muestra.
 
 \column{0.42\textwidth}
 \scriptsize
@@ -163,9 +162,9 @@ muestra. \href{../output/figures/pres_3d.html}{Versión interactiva (HTML)}.
 Resultado & Ingreso/ & Prop. & Personas \\
           & línea    & ocup. &          \\
 \midrule
-\textcolor{azul}{Pobre detectado}        & 0,64 & 0,28 & 4,3 \\
-\textcolor{rojo}{Pobre excluido}         & 0,85 & 0,45 & 3,3 \\
-\textcolor{dorado!85!black}{No pobre incluido} & 1,22 & 0,35 & 3,8 \\
+\textcolor{gris}{Pobre detectado}        & 0,64 & 0,28 & 4,3 \\
+\textcolor{rojo}{\textbf{Pobre excluido}} & 0,85 & 0,45 & 3,3 \\
+\textcolor{dorado!85!black}{\textbf{No pobre incluido}} & 1,22 & 0,35 & 3,8 \\
 \textcolor{gris}{No pobre bien clasif.}  & 2,63 & 0,56 & 3,0 \\
 \bottomrule
 \end{tabular}
@@ -533,7 +532,7 @@ transparencia? ¿Quién responde por el error de una caja negra?
 
 % =============================================================================
 \begin{frame}{Referencias}
-\fontfamily{ppl}\selectfont\scriptsize
+\scriptsize
 \begin{list}{}{\leftmargin=1.6em \itemindent=-1.6em \itemsep=1.2pt \parsep=0pt}
   \item Angulo, R., Díaz, Y. y Pardo, R. (2016). The Colombian
     Multidimensional Poverty Index: Measuring poverty in a public policy
