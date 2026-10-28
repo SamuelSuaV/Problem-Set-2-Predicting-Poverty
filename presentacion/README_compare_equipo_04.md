@@ -6,8 +6,8 @@ Big Data y Machine Learning Aplicado a la Economía, Universidad de los Andes.
 Este documento acompaña la presentación [`compare_equipo_04.tex`](compare_equipo_04.tex), el segundo set de diapositivas. El primero, [`best_equipo_04.tex`](best_equipo_04.tex), presenta el modelo ganador en detalle. Aquí contamos cómo se compara ese modelo con los demás algoritmos que probamos y qué tradeoffs implica elegirlo para una política pública.
 
 Los números salen de:
-- las predicciones fuera de muestra de los 8 modelos (`ps2_predicciones_fuera_de_muestra/predicciones_oof.csv`, mismas 5 particiones por hogar) y de [`script/11_figuras_presentacion.r`](../script/11_figuras_presentacion.r), que calcula las matrices de confusión, el ROC-AUC, las métricas, la nube 3D y las curvas de F1 por número de variables (`output/tables/presentacion/*.dat`);
-- [`output/tables/modelos_f1.tex`](../output/tables/modelos_f1.tex) y [`equidad_brechas.tex`](../output/tables/equidad_brechas.tex) (script `06`);
+- las predicciones fuera de muestra de los 8 modelos (`02_outputs/pruebas/comparacion/predicciones_oof.rds`, de `15`, mismas 5 particiones por hogar) y de [`01_code/16_figuras_presentacion.R`](../01_code/16_figuras_presentacion.R), que calcula las matrices de confusión, el ROC-AUC, las métricas, la nube 3D y las curvas de F1 por número de variables (`02_outputs/tables/presentacion/*.dat`);
+- [`02_outputs/tables/modelos_f1.tex`](../02_outputs/tables/modelos_f1.tex) y [`equidad_brechas.tex`](../02_outputs/tables/equidad_brechas.tex) (script `15`);
 - [`latex/resultados.tex`](../latex/resultados.tex).
 
 ---
@@ -41,7 +41,7 @@ GEIH 2018: 543.103 personas en 164.958 hogares, 20% de hogares pobres. Los monto
 
 ### 2.2 Descriptivas comparativas: dónde caen los aciertos y los errores
 
-La nube 3D ([`pres_3d.png`](../output/figures/pres_3d.png); versión interactiva que se puede rotar: [`pres_3d.html`](../output/figures/pres_3d.html)) muestra 8.000 hogares de train al azar en tres ejes:
+La nube 3D ([`pres_3d.png`](../02_outputs/figures/pres_3d.png); versión interactiva que se puede rotar: [`pres_3d.html`](../02_outputs/figures/pres_3d.html)) muestra 8.000 hogares de train al azar en tres ejes:
 
 - **x:** log(ingreso / línea), donde 0 es la línea de pobreza (ingreso real, que solo existe en train);
 - **y:** proporción de ocupados del hogar;
@@ -100,7 +100,7 @@ En la gráfica, el eje x ordena los modelos por **pérdida de interpretabilidad*
 | Limitaciones | Caja negra; 26 modelos por variable; costoso de mantener y explicar | Caja negra; combinado con XGBoost no suma (0,7773): mismos errores | 0,03 menos de F1; 794 coeficientes no nulos, así que se lee por bloques |
 
 **Detalle de "qué lo mueve"** (no va en la slide):
-- *XGBoost:* permutar el ingreso predicho resta 0,42 de F1. De extremo a extremo, por pregunta: posición ocupacional P6430 (−0,208), arriendos/pensiones P7495 (−0,058), ingresos por trabajo de inactivos P7472 (−0,056), arriendo por persona (−0,038), horas P6800 (−0,021) ([`importancia_variables_e2e.tex`](../output/tables/importancia_variables_e2e.tex)).
+- *XGBoost:* permutar el ingreso predicho resta 0,42 de F1. De extremo a extremo, por pregunta: posición ocupacional P6430 (−0,208), arriendos/pensiones P7495 (−0,058), ingresos por trabajo de inactivos P7472 (−0,056), arriendo por persona (−0,038), horas P6800 (−0,021) ([`importancia_variables_e2e.tex`](../02_outputs/tables/importancia_variables_e2e.tex)).
 - *Random forest:* usa la misma cadena de modelos anidados; su importancia propia no se calculó.
 - *Logit:* por bloques, demografía 0,468 → + trabajo 0,547 → + calidad del empleo 0,617 → + salud y educación 0,665 → + vivienda e ingresos no laborales 0,726 → + interacciones 0,738. Las variables con mayor AUC solas: arriendo por persona sobre la línea (0,79), proporción en régimen contributivo (0,76) y horas por persona (0,74).
 
@@ -108,7 +108,7 @@ El logit y el XGBoost tienen una **correlación de 0,92** en log odds, y el peso
 
 ### 3.4 Cuánto cuesta en F1 un modelo que se puede leer
 
-Para comparar los algoritmos con la misma información, cada uno se entrena con las *k* variables más importantes de la **base por hogar** (94 variables; el orden es el de la ganancia del XGBoost de esa base, igual para todos), con los mismos 5 folds y el umbral que maximiza el F1 (sección 7 de `11_figuras_presentacion.r`):
+Para comparar los algoritmos con la misma información, cada uno se entrena con las *k* variables más importantes de la **base por hogar** (94 variables; el orden es el de la ganancia del XGBoost de esa base, igual para todos), con los mismos 5 folds y el umbral que maximiza el F1 (sección 7 de `16_figuras_presentacion.R`):
 
 - **Logit:** `glm` binomial sin penalizar.
 - **Naive Bayes:** `e1071`, normales para las numéricas.
@@ -128,7 +128,7 @@ Para comparar los algoritmos con la misma información, cada uno se entrena con 
 | 60 | 0,732 | 0,616 | 0,698 | 0,736 | 0,752 |
 | 94 | 0,736 | 0,590 | 0,698 | 0,737 | 0,754 |
 
-Las 5 primeras variables son `prop_contributivo`, `horas_pc`, `log_arriendo_pc_lp`, `educ_ocup_suma_pc` y `tenencia` (`orden_variables.dat`). Dos verificaciones: el XGBoost con las 94 da 0,7536, lo mismo que la base por hogar de `05b` (0,7534), y el logit con las 94 da 0,7357, igual que la curva de `main`.
+Las 5 primeras variables son `prop_contributivo`, `horas_pc`, `log_arriendo_pc_lp`, `educ_ocup_suma_pc` y `tenencia` (`orden_variables.dat`). Dos verificaciones: el XGBoost con las 94 da 0,7536, lo mismo que la base por hogar de `11` (0,7534), y el logit con las 94 da 0,7357, igual que la curva de `main`.
 
 - **Cóncavas:** con 15 variables el logit ya llega a 0,70 y XGBoost a 0,73. Desde 30 variables, los árboles casi no suben.
 - **Con la misma información, el algoritmo vale cerca de 0,02:** con las 94 variables, logit 0,736 y random forest 0,737 frente a XGBoost 0,754. Los modelos anidados agregan otros 0,02 (XGBoost final 0,7775).
@@ -223,12 +223,12 @@ Un instrumento de focalización tiene que ser **creíble**: los hogares, los alc
 ## 5. Cómo replicar
 
 ```sh
-Rscript script/01_data_cleaning.r                      # bases limpias
-Rscript script/01b_bases_hogar.r                      # bases por hogar
-Rscript script/05b_xgboost_hogar.r                     # XGBoost final, random forest y permutaciones
-Rscript output/pruebas/logit/06_logit_interacciones_main.r   # logit lasso (copia del 06 de main)
-Rscript script/06_comparacion_modelos.r                # modelos_f1.tex y tablas de equidad
-Rscript script/11_figuras_presentacion.r               # 3D, métricas, ROC y F1 vs. k (lee ps2_predicciones_fuera_de_muestra/)
+Rscript 01_code/01_data_cleaning.R                      # bases limpias
+Rscript 01_code/02_bases_hogar.R                       # bases por hogar
+Rscript 01_code/11_xgboost_hogar.R                     # XGBoost final, random forest y permutaciones
+Rscript 01_code/08_logit_interacciones.R               # logit lasso (guarda logit_oof.rds)
+Rscript 01_code/15_comparacion_modelos.R                # modelos_f1.tex y tablas de equidad
+Rscript 01_code/16_figuras_presentacion.R               # 3D, métricas, ROC y F1 vs. k (después de 15)
 cd presentacion && latexmk -pdf compare_equipo_04.tex  # presentación
 ```
 

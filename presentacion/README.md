@@ -3,7 +3,7 @@
 **Equipo 04:** Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
 Big Data y Machine Learning Aplicado a la Economía, Universidad de los Andes.
 
-Este documento acompaña la presentación [`best_equipo_04.tex`](best_equipo_04.tex) y tiene la narrativa y el sustento técnico completos. Los números salen de [`latex/resultados.tex`](../latex/resultados.tex), de las tablas de [`output/tables/`](../output/tables/) y de [`script/11_figuras_presentacion.r`](../script/11_figuras_presentacion.r), que arma las figuras nuevas y los datos de las gráficas (`output/tables/presentacion/*.dat`).
+Este documento acompaña la presentación [`best_equipo_04.tex`](best_equipo_04.tex) y tiene la narrativa y el sustento técnico completos. Los números salen de [`latex/resultados.tex`](../latex/resultados.tex), de las tablas de [`02_outputs/tables/`](../02_outputs/tables/) y de [`01_code/16_figuras_presentacion.R`](../01_code/16_figuras_presentacion.R), que arma las figuras nuevas y los datos de las gráficas (`02_outputs/tables/presentacion/*.dat`).
 
 ---
 
@@ -62,7 +62,7 @@ La intuición económica no está en la lista de variables (cualquier equipo pue
 
 ### 2.3 Los predictores que importan
 
-Las figuras nuevas ([`pres_predictores_cat.png`](../output/figures/pres_predictores_cat.png) y [`pres_predictores_cont.png`](../output/figures/pres_predictores_cont.png), sección 2 de `11_figuras_presentacion.r`) muestran el % de hogares pobres según las preguntas con mayor importancia en el modelo (sección 3.5), todas a nivel hogar.
+Las figuras nuevas ([`pres_predictores_cat.png`](../02_outputs/figures/pres_predictores_cat.png) y [`pres_predictores_cont.png`](../02_outputs/figures/pres_predictores_cont.png), sección 2 de `16_figuras_presentacion.R`) muestran el % de hogares pobres según las preguntas con mayor importancia en el modelo (sección 3.5), todas a nivel hogar.
 
 - **Posición ocupacional del jefe (P6430):** va de 1% de hogares pobres (empleado del gobierno) a 27% (cuenta propia) y 34% (familiar sin pago). Es la pregunta individual más importante del modelo.
 - **Algún miembro recibe arriendos o pensiones (P7495):** 4% de pobres si sí, frente a 24% si no.
@@ -94,7 +94,7 @@ Después del pivote, cada escalón agrega **información sobre el ingreso del ho
 
 ### 3.1 Estructura (tres niveles)
 
-Diagrama: [`output/figures/estructura_modelo_slide.png`](../output/figures/estructura_modelo_slide.png) (fuente: [`latex/estructura_modelo_slide.tex`](../latex/estructura_modelo_slide.tex)).
+Diagrama: [`02_outputs/figures/estructura_modelo_slide.png`](../02_outputs/figures/estructura_modelo_slide.png) (fuente: [`latex/estructura_modelo_slide.tex`](../latex/estructura_modelo_slide.tex)).
 
 1. **Modelos auxiliares por persona** (XGBoost): el ingreso de cada miembro (cinco versiones, la última con Tweedie), la probabilidad de ser pobre, la probabilidad de que el ingreso del hogar quede por debajo de 0,8 y 1,25 líneas, y la tasa de pobreza del oficio.
 2. **Resúmenes por hogar:** suma, máximo, mínimo, el valor del jefe y el ingreso por ocupado.
@@ -109,7 +109,7 @@ Diagrama: [`output/figures/estructura_modelo_slide.png`](../output/figures/estru
 
 **Parada temprana.** XGBoost agrega árboles uno a uno, y cada árbol corrige el error de los anteriores. Al principio la log-loss baja en entrenamiento y en validación; después solo baja en entrenamiento (el modelo empieza a memorizar). El entrenamiento para cuando la log-loss del fold de validación lleva **100 árboles seguidos sin mejorar**, y se usa el árbol con la mejor log-loss: entre 613 y 869 según el fold. *Nota de transparencia:* el número de árboles se decide con el mismo fold que se evalúa. Eso introduce un optimismo pequeño en el F1 de validación cruzada. No cambia las conclusiones: el F1 se mantiene con otras particiones, y el puntaje en test de Kaggle (0,78) es consistente con el de validación cruzada.
 
-**Umbral.** El modelo entrega una probabilidad, y el umbral la convierte en una decisión. Subirlo aumenta la precisión y reduce el recall. Para cada umbral de una grilla de 0,10 a 0,85 se calcula el F1 de cada fold, y se escoge el que maximiza el promedio: **0,39**. Con 0,5 el F1 sería 0,765 (precisión 0,80, recall 0,73); con 0,39 es 0,7775 (precisión 0,75, recall 0,81). No es 0,5 porque solo el 20% de los hogares es pobre y el F1 premia encontrarlos (datos en `output/tables/presentacion/umbral_final.dat`).
+**Umbral.** El modelo entrega una probabilidad, y el umbral la convierte en una decisión. Subirlo aumenta la precisión y reduce el recall. Para cada umbral de una grilla de 0,10 a 0,85 se calcula el F1 de cada fold, y se escoge el que maximiza el promedio: **0,39**. Con 0,5 el F1 sería 0,765 (precisión 0,80, recall 0,73); con 0,39 es 0,7775 (precisión 0,75, recall 0,81). No es 0,5 porque solo el 20% de los hogares es pobre y el F1 premia encontrarlos (datos en `02_outputs/tables/presentacion/umbral_final.dat`).
 
 ### 3.3 Hiperparámetros: qué controla cada uno
 
@@ -133,7 +133,7 @@ $$L(y,\mu) = -\frac{y\,\mu^{1-\rho}}{1-\rho} + \frac{\mu^{2-\rho}}{2-\rho}, \qqu
 
 Con error cuadrático sobre $\log y$, la predicción de cada persona se acerca a la **mediana**, y al sumar a los miembros el ingreso del hogar queda subestimado. La Tweedie (entre la Poisson y la Gamma) admite masa en cero y una cola larga, y predice la **media** en pesos, que es la que importa al sumar. El $R^2$ del ingreso del hogar pasa de 0,63 a 0,66 y el F1 de 0,7733 a 0,7772.
 
-**Cómo se calculan los pesos 70/30.** La combinación tiene cuatro pasos (secciones 5.19, 5.20 y 6 de [`05b_xgboost_hogar.r`](../script/05b_xgboost_hogar.r)):
+**Cómo se calculan los pesos 70/30.** La combinación tiene cuatro pasos (secciones 5.19, 5.20 y 6 de [`11_xgboost_hogar.R`](../01_code/11_xgboost_hogar.R)):
 
 1. **La regresión.** Un XGBoost con error cuadrático predice $z_i = \log(\text{ingreso}_i/\text{línea}_i)$ con las mismas variables del clasificador. Un hogar es pobre si $z < 0$. Cada hogar pesa en el entrenamiento
 
@@ -201,11 +201,11 @@ El trabajo entra casi todo a través del ingreso predicho. Solo la vivienda y el
 
 Sumó todo lo que mejora la **medición del ingreso** del hogar. Restó, o no cambió nada, transformar las mismas variables, rebalancear la muestra y agregar modelos cerca de la línea.
 
-Fuentes: [`importancia_grupos.tex`](../output/tables/importancia_grupos.tex), [`importancia_conceptos.tex`](../output/tables/importancia_conceptos.tex), [`importancia_variables.tex`](../output/tables/importancia_variables.tex) (secciones 14 y 15 de `05b_xgboost_hogar.r`).
+Fuentes: [`importancia_grupos.tex`](../02_outputs/tables/importancia_grupos.tex), [`importancia_conceptos.tex`](../02_outputs/tables/importancia_conceptos.tex), [`importancia_variables.tex`](../02_outputs/tables/importancia_variables.tex) (secciones 14 y 15 de `11_xgboost_hogar.R`).
 
 ### 3.6 Diagnósticos: dónde se equivoca
 
-Tasa de error del modelo final según el ingreso del hogar sobre la línea (sección 6 de `11_figuras_presentacion.r`, `errores_linea.dat`):
+Tasa de error del modelo final según el ingreso del hogar sobre la línea (sección 6 de `16_figuras_presentacion.R`, `errores_linea.dat`):
 
 | Ingreso / línea | % de los hogares | Error | Tipo |
 | :---: | :---: | :---: | :--- |
@@ -258,7 +258,7 @@ El F1 pesa igual los dos errores, y un programa social no tiene por qué hacerlo
 | Menores | Sin menores de 18 | 9,3 | 65,2 | 3,1 | 0,667 |
 | | Con menores de 18 | 29,6 | 85,1 | 10,9 | 0,807 |
 
-Fuente: [`equidad_mejor.tex`](../output/tables/equidad_mejor.tex).
+Fuente: [`equidad_mejor.tex`](../02_outputs/tables/equidad_mejor.tex).
 
 - En los grupos con más precariedad (zona rural, jefe informal, hogares grandes) el modelo **sobreestima** la pobreza: tiene más errores de inclusión.
 - Los pobres "que no lo parecen" (jefe formal o con educación superior, hogares pequeños o sin menores) quedan **excluidos** con más frecuencia: la sensibilidad es de 65–67%.
@@ -303,15 +303,15 @@ El modelo mide **estrictamente pobreza monetaria**. Educación, salud y subsidio
 Desde la raíz del repositorio:
 
 ```sh
-Rscript script/01_data_cleaning.r                      # bases limpias por persona
-Rscript script/01b_bases_hogar.r                      # bases por hogar (data/train_hogar.rds, data/test_hogar.rds)
-Rscript script/05b_xgboost_hogar.r                     # modelo final, permutaciones (secciones 14-16) y submission
-Rscript script/06_comparacion_modelos.r                # tablas de comparación y equidad
-Rscript script/11_figuras_presentacion.r               # figuras y datos de las slides (necesita ps2_predicciones_fuera_de_muestra/)
+Rscript 01_code/01_data_cleaning.R                      # bases limpias por persona
+Rscript 01_code/02_bases_hogar.R                       # bases por hogar (data/train_hogar.rds, data/test_hogar.rds)
+Rscript 01_code/11_xgboost_hogar.R                     # modelo final, permutaciones (secciones 14-16) y submission
+Rscript 01_code/15_comparacion_modelos.R                # tablas de comparación y equidad
+Rscript 01_code/16_figuras_presentacion.R               # figuras y datos de las slides (después de 15)
 cd presentacion && latexmk -pdf best_equipo_04.tex     # presentación
 ```
 
-Submission final: `output/submissions/XGBH_nativo_comb_..._peso_w07_threshold_039.csv`.
+Submission final: `02_outputs/predictions/XGBH_nativo_comb_..._peso_w07_threshold_039.csv`.
 
 ---
 

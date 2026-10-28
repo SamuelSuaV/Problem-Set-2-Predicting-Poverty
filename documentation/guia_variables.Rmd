@@ -16,16 +16,16 @@ library(tidyverse)
 
 ## Cómo usar esta guía
 
-- Las bases limpias salen de `script/01_data_cleaning.r`, que guarda
+- Las bases limpias salen de `01_code/01_data_cleaning.R`, que guarda
   `data/train_clean.rds` y `data/test_clean.rds`. Para cargarlas:
   `train <- read_rds(here("data", "train_clean.rds"))`.
 - **Unidad de observación: persona.** Cada fila es una persona; las variables
   del hogar se repiten para todas las personas del mismo `id`.
-- **Bases a nivel hogar:** `script/01b_bases_hogar.r` guarda `data/train_hogar.rds` y
+- **Bases a nivel hogar:** `01_code/02_bases_hogar.R` guarda `data/train_hogar.rds` y
   `data/test_hogar.rds`, con una fila por hogar y agregados de sus miembros
   (sección [Bases a nivel hogar](#bases-a-nivel-hogar) al final). Las usa
-  `script/04_logit.r`.
-- **Todo cambio a una variable se hace en `01_data_cleaning.r`** (no en los
+  `01_code/06_logit.R`.
+- **Todo cambio a una variable se hace en `01_data_cleaning.R`** (no en los
   scripts de análisis) **y se actualiza esta guía.** Al compilarla, la última
   sección avisa si alguna variable de la base no está documentada aquí.
 - Fuente de los códigos: `documentation/ddi-documentation-spanish-608.pdf`
@@ -220,7 +220,7 @@ for (g in grupos) {
 
 ## Bases a nivel hogar
 
-`train_hogar` y `test_hogar` (`script/01b_bases_hogar.r`) tienen **una fila por hogar**.
+`train_hogar` y `test_hogar` (`01_code/02_bases_hogar.R`) tienen **una fila por hogar**.
 Se construyen desde `train_clean` y `test_clean` ya editadas, con la misma
 función para ambas.
 
@@ -362,7 +362,7 @@ for (g in unique(variables_hogar$grupo)) {
 chequear <- function(archivo, documentadas) {
   ruta <- here("data", archivo)
   if (!file.exists(ruta)) {
-    cat("No se encontró data/", archivo, ": corre script/01_data_cleaning.r primero.\n", sep = "")
+    cat("No se encontró data/", archivo, ": corre 01_code/01_data_cleaning.R primero.\n", sep = "")
     return(invisible())
   }
   en_base <- names(read_rds(ruta))

@@ -2,9 +2,9 @@
 % Predicting Poverty — Comparación de modelos (equipo 04)
 % Autores: Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
 % Compilar desde presentacion/:  latexmk -pdf compare_equipo_04.tex
-% Figuras: ../output/figures/ e img/ (capturas de Kaggle). Datos de las
-% gráficas pgfplots: ../output/tables/presentacion/*.dat
-% (script/11_figuras_presentacion.r). Números: output/tables/*.tex,
+% Figuras: ../02_outputs/figures/ e img/ (capturas de Kaggle). Datos de las
+% gráficas pgfplots: ../02_outputs/tables/presentacion/*.dat
+% (01_code/16_figuras_presentacion.R). Números: 02_outputs/tables/*.tex,
 % latex/resultados.tex. Narrativa completa: README_compare_equipo_04.md.
 % =============================================================================
 \documentclass[aspectratio=169,10pt,xcolor=table]{beamer}
@@ -23,8 +23,8 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.17}
 
-\graphicspath{{../output/figures/}{img/}}
-\newcommand{\dat}[1]{../output/tables/presentacion/#1.dat}
+\graphicspath{{../02_outputs/figures/}{img/}}
+\newcommand{\dat}[1]{../02_outputs/tables/presentacion/#1.dat}
 
 % ---- Colores (los mismos de best_equipo_04.tex) ----------------------------
 \definecolor{azul}{HTML}{0B3C5D}
@@ -153,7 +153,7 @@ ocupado ($R^2$ del ingreso por persona 0,94 $\to$ 0,98).
 \centering
 \includegraphics[width=\linewidth, height=0.74\textheight, keepaspectratio]{pres_3d.png}\\
 \tiny 8.000 hogares de train al azar; resultado del modelo final fuera de
-muestra. \href{../output/figures/pres_3d.html}{Versión interactiva (HTML)}.
+muestra. \href{../02_outputs/figures/pres_3d.html}{Versión interactiva (HTML)}.
 
 \column{0.42\textwidth}
 \scriptsize

@@ -2,10 +2,10 @@
 % Predicting Poverty — Presentación del mejor modelo (equipo 04)
 % Autores: Maria Jose Perez, Juan Manuel Lozano, Samuel Suárez Valle
 % Compilar desde presentacion/:  latexmk -pdf best_equipo_04.tex
-% Figuras: ../output/figures/ (02, 05b, 06 y 07; el diagrama del modelo viene
-% de latex/estructura_modelo_slide.tex). Datos de las gráficas pgfplots:
-% ../output/tables/presentacion/*.dat (script/11_figuras_presentacion.r).
-% Números: latex/resultados.tex y output/tables/*.tex.
+% Figuras: ../02_outputs/figures/ (03, 11, 15 y 16; el diagrama del modelo
+% viene de latex/estructura_modelo_slide.tex). Datos de las gráficas pgfplots:
+% ../02_outputs/tables/presentacion/*.dat (01_code/16_figuras_presentacion.R).
+% Números: latex/resultados.tex y 02_outputs/tables/*.tex.
 % =============================================================================
 \documentclass[aspectratio=169,10pt]{beamer}
 
@@ -23,8 +23,8 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.17}
 
-\graphicspath{{../output/figures/}}
-\newcommand{\dat}[1]{../output/tables/presentacion/#1.dat}
+\graphicspath{{../02_outputs/figures/}}
+\newcommand{\dat}[1]{../02_outputs/tables/presentacion/#1.dat}
 
 % ---- Colores ---------------------------------------------------------------
 \definecolor{azul}{HTML}{0B3C5D}
@@ -229,10 +229,10 @@ interacciones no sumaron: los árboles ya las construyen.
 % -----------------------------------------------------------------------------
 % PLACEHOLDER: explicación visual de la estructura del modelo.
 % Por defecto se incluye el diagrama de latex/estructura_modelo_slide.tex
-% (output/figures/estructura_modelo_slide.png).
+% (02_outputs/figures/estructura_modelo_slide.png).
 % -----------------------------------------------------------------------------
 \centering
-\IfFileExists{../output/figures/estructura_modelo_slide.png}{%
+\IfFileExists{../02_outputs/figures/estructura_modelo_slide.png}{%
   \includegraphics[width=\linewidth, height=0.7\textheight, keepaspectratio]{estructura_modelo_slide.png}%
 }{%
   \fbox{\parbox[c][0.6\textheight][c]{0.9\linewidth}{\centering
