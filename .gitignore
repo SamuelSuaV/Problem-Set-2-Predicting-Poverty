@@ -70,6 +70,10 @@ presentacion/*.snm
 presentacion/*.toc
 presentacion/*.synctex.gz
 
+# Predicciones fuera de muestra compartidas (vienen del computador que corrió
+# 05b y 06; las lee 07_figuras_presentacion.r)
+ps2_predicciones_fuera_de_muestra/
+
 # Logs de las corridas (se regeneran al correr cada script)
 *.log
 
